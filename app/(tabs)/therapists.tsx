@@ -26,7 +26,7 @@ export default function TherapistsScreen() {
             style={{
               padding: 12,
               borderWidth: 1,
-              borderColor: isSelected ? "green" : "#ccc",
+              borderColor: isSelected ? "#5b8def" : "#ccc",
               borderRadius: 8,
               marginBottom: 10,
             }}
