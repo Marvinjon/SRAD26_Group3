@@ -2,7 +2,6 @@ import { DashboardCard, StatBadge } from '@/components/dashboard-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/auth-context';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import {
   ScrollView,
   StyleSheet,
@@ -27,7 +26,7 @@ function getToday(): string {
 }
 
 // ─── Student / Employee Dashboard ────────────────────────────
-function StudentDashboard({ name, onBookAppointment }: { name: string; onBookAppointment: () => void }) {
+function StudentDashboard({ name }: { name: string }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
 
@@ -193,7 +192,6 @@ function TherapistDashboard({ name }: { name: string }) {
 // ─── Main Screen ─────────────────────────────────────────────
 export default function HomeScreen() {
   const { user } = useAuth();
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
@@ -213,10 +211,7 @@ export default function HomeScreen() {
             {isTherapist ? (
               <TherapistDashboard name={user?.name ?? ''} />
             ) : (
-              <StudentDashboard
-                name={user?.name ?? ''}
-                onBookAppointment={() => router.push('/(tabs)/therapists')}
-              />
+              <StudentDashboard name={user?.name ?? ''} />
             )}
           </View>
         </ScrollView>
