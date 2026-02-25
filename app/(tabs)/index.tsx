@@ -4,14 +4,13 @@ import {
   ScrollView,
   View,
   useWindowDimensions,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DashboardCard, QuickAction, StatBadge } from '@/components/dashboard-card';
 import { useAuth } from '@/contexts/auth-context';
-import { useThemeColor } from '@/hooks/use-theme-color';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -29,7 +28,7 @@ function getToday(): string {
 }
 
 // ─── Student / Employee Dashboard ────────────────────────────
-function StudentDashboard({ name }: { name: string }) {
+function StudentDashboard({ name, onBookAppointment }: { name: string; onBookAppointment: () => void }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
 
@@ -63,7 +62,7 @@ function StudentDashboard({ name }: { name: string }) {
       <DashboardCard title="Quick Actions">
         <View style={styles.actionsGrid}>
           <QuickAction icon="📝" label="Write Diary" color="#5B8DEF" />
-          <QuickAction icon="📅" label="Book Appointment" color="#8B5CF6" />
+          <QuickAction icon="📅" label="Book Appointment" color="#8B5CF6" onPress={onBookAppointment} />
           <QuickAction icon="📊" label="View Trends" color="#10B981" />
           <QuickAction icon="🆘" label="Get Support" color="#EF4444" />
         </View>
@@ -213,9 +212,9 @@ function TherapistDashboard({ name }: { name: string }) {
 // ─── Main Screen ─────────────────────────────────────────────
 export default function HomeScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-  const bgColor = useThemeColor({}, 'background');
 
   const isTherapist = user?.role === 'therapist';
 
@@ -233,7 +232,10 @@ export default function HomeScreen() {
             {isTherapist ? (
               <TherapistDashboard name={user?.name ?? ''} />
             ) : (
-              <StudentDashboard name={user?.name ?? ''} />
+              <StudentDashboard
+                name={user?.name ?? ''}
+                onBookAppointment={() => router.push('/(tabs)/therapists')}
+              />
             )}
           </View>
         </ScrollView>
