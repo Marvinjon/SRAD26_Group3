@@ -1,16 +1,15 @@
-import React from 'react';
-import {
-  StyleSheet,
-  ScrollView,
-  View,
-  useWindowDimensions,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { DashboardCard, StatBadge } from '@/components/dashboard-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DashboardCard, QuickAction, StatBadge } from '@/components/dashboard-card';
 import { useAuth } from '@/contexts/auth-context';
+import { useThemeColor } from '@/hooks/use-theme-color';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -58,15 +57,6 @@ function StudentDashboard({ name, onBookAppointment }: { name: string; onBookApp
         <StatBadge value="7.2h" label="Avg. sleep" color="#8B5CF6" />
         <StatBadge value="3" label="Check-ins" color="#10B981" />
       </View>
-
-      <DashboardCard title="Quick Actions">
-        <View style={styles.actionsGrid}>
-          <QuickAction icon="📝" label="Write Diary" color="#5B8DEF" />
-          <QuickAction icon="📅" label="Book Appointment" color="#8B5CF6" onPress={onBookAppointment} />
-          <QuickAction icon="📊" label="View Trends" color="#10B981" />
-          <QuickAction icon="🆘" label="Get Support" color="#EF4444" />
-        </View>
-      </DashboardCard>
 
       <View style={isWide ? styles.twoColRow : undefined}>
         <DashboardCard title="Upcoming" accent="#5B8DEF" style={isWide ? styles.halfCard : undefined}>
@@ -150,15 +140,6 @@ function TherapistDashboard({ name }: { name: string }) {
         <StatBadge value="12" label="This week" color="#8B5CF6" />
         <StatBadge value="2" label="Workshops" color="#10B981" />
       </View>
-
-      <DashboardCard title="Quick Actions">
-        <View style={styles.actionsGrid}>
-          <QuickAction icon="📅" label="Manage Availability" color="#5B8DEF" />
-          <QuickAction icon="🎓" label="Create Workshop" color="#8B5CF6" />
-          <QuickAction icon="📢" label="Send Notification" color="#F59200" />
-          <QuickAction icon="👤" label="View Clients" color="#10B981" />
-        </View>
-      </DashboardCard>
 
       <DashboardCard title="Today's Schedule" accent="#5B8DEF">
         {[
@@ -310,13 +291,6 @@ const styles = StyleSheet.create({
   statsRowWide: {
     flexDirection: 'row',
     gap: 12,
-  },
-
-  // Quick actions
-  actionsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
   },
 
   // Two column
