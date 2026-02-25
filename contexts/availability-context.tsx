@@ -9,20 +9,15 @@ export interface TimeSlot {
   endTime: string;         // HH:MM
   therapistEmail: string;
   therapistName: string;
-  bookedBy: string | null; // student email or null
-  bookedByName: string | null;
 }
 
 interface AvailabilityContextType {
   slots: TimeSlot[];
   isLoading: boolean;
-  addSlot: (slot: Omit<TimeSlot, 'id' | 'bookedBy' | 'bookedByName'>) => Promise<void>;
+  addSlot: (slot: Omit<TimeSlot, 'id'>) => Promise<void>;
   removeSlot: (slotId: string) => Promise<void>;
-  bookSlot: (slotId: string, studentEmail: string, studentName: string) => Promise<void>;
-  cancelBooking: (slotId: string) => Promise<void>;
-  getSlotsForDate: (date: string) => TimeSlot[];
-  getMarkedDates: (therapistEmail?: string) => Record<string, { marked: boolean; dotColor: string }>;
-  getBookedSlots: (studentEmail: string) => TimeSlot[];
+  getSlotsForDate: (date: string, therapistEmail: string) => TimeSlot[];
+  getMarkedDates: (therapistEmail: string) => Record<string, { marked: boolean; dotColor: string }>;
 }
 
 const STORAGE_KEY = 'mindtrack_availability';
@@ -56,12 +51,10 @@ export function AvailabilityProvider({ children }: { children: React.ReactNode }
 
   // ─── CRUD ──────────────────────────────────────────────────
   const addSlot = useCallback(
-    async (slot: Omit<TimeSlot, 'id' | 'bookedBy' | 'bookedByName'>) => {
+    async (slot: Omit<TimeSlot, 'id'>) => {
       const newSlot: TimeSlot = {
         ...slot,
         id: `${slot.date}_${slot.startTime}_${Date.now()}`,
-        bookedBy: null,
-        bookedByName: null,
       };
       const next = [...slots, newSlot].sort(
         (a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime),
@@ -78,55 +71,24 @@ export function AvailabilityProvider({ children }: { children: React.ReactNode }
     [slots],
   );
 
-  const bookSlot = useCallback(
-    async (slotId: string, studentEmail: string, studentName: string) => {
-      const next = slots.map((s) =>
-        s.id === slotId ? { ...s, bookedBy: studentEmail, bookedByName: studentName } : s,
-      );
-      await persist(next);
-    },
-    [slots],
-  );
-
-  const cancelBooking = useCallback(
-    async (slotId: string) => {
-      const next = slots.map((s) =>
-        s.id === slotId ? { ...s, bookedBy: null, bookedByName: null } : s,
-      );
-      await persist(next);
-    },
-    [slots],
-  );
-
   // ─── Queries ───────────────────────────────────────────────
   const getSlotsForDate = useCallback(
-    (date: string) => slots.filter((s) => s.date === date),
+    (date: string, therapistEmail: string) =>
+      slots.filter((s) => s.date === date && s.therapistEmail === therapistEmail),
     [slots],
   );
 
   const getMarkedDates = useCallback(
-    (therapistEmail?: string) => {
-      const filtered = therapistEmail
-        ? slots.filter((s) => s.therapistEmail === therapistEmail)
-        : slots;
-
+    (therapistEmail: string) => {
+      const filtered = slots.filter((s) => s.therapistEmail === therapistEmail);
       const map: Record<string, { marked: boolean; dotColor: string }> = {};
       for (const s of filtered) {
-        const hasOpen = !s.bookedBy;
         if (!map[s.date]) {
-          map[s.date] = { marked: true, dotColor: hasOpen ? '#10B981' : '#F59E0B' };
-        } else if (hasOpen) {
-          // If at least one open slot, show green
-          map[s.date].dotColor = '#10B981';
+          map[s.date] = { marked: true, dotColor: '#10B981' };
         }
       }
       return map;
     },
-    [slots],
-  );
-
-  const getBookedSlots = useCallback(
-    (studentEmail: string) => slots.filter((s) => s.bookedBy === studentEmail),
     [slots],
   );
 
@@ -137,11 +99,8 @@ export function AvailabilityProvider({ children }: { children: React.ReactNode }
         isLoading,
         addSlot,
         removeSlot,
-        bookSlot,
-        cancelBooking,
         getSlotsForDate,
         getMarkedDates,
-        getBookedSlots,
       }}>
       {children}
     </AvailabilityContext.Provider>

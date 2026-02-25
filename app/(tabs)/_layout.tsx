@@ -3,10 +3,13 @@ import { Tabs } from 'expo-router';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { user } = useAuth();
+  const isTherapist = user?.role === 'therapist';
 
   return (
     <Tabs
@@ -27,6 +30,7 @@ export default function TabLayout() {
         options={{
           title: 'Calendar',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+          href: isTherapist ? undefined : null,
         }}
       />
       <Tabs.Screen

@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const BRAND = '#5B8DEF';
 const GREEN = '#10B981';
 const RED = '#EF4444';
-const AMBER = '#F59E0B';
 
 // ─── Generate time options (HH:MM) in 30-min increments ─────
 function generateTimeOptions(): string[] {
@@ -34,7 +33,7 @@ function generateTimeOptions(): string[] {
 }
 const TIME_OPTIONS = generateTimeOptions();
 
-// ─── Therapist: Add Slot Modal ──────────────────────────────
+// ─── Add Slot Modal ─────────────────────────────────────────
 function AddSlotModal({
   visible,
   date,
@@ -49,7 +48,6 @@ function AddSlotModal({
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
   const bg = useThemeColor({}, 'background');
-  const text = useThemeColor({}, 'text');
 
   const handleAdd = () => {
     if (startTime >= endTime) {
@@ -110,111 +108,48 @@ function AddSlotModal({
   );
 }
 
-// ─── Slot Card ───────────────────────────────────────────────
+// ─── Slot Card (therapist-only, simple) ─────────────────────
 function SlotCard({
   slot,
-  isTherapist,
-  isOwnSlot,
-  currentUserEmail,
-  currentUserName,
   onDelete,
-  onBook,
-  onCancel,
 }: {
   slot: TimeSlot;
-  isTherapist: boolean;
-  isOwnSlot: boolean;
-  currentUserEmail: string;
-  currentUserName: string;
   onDelete: () => void;
-  onBook: () => void;
-  onCancel: () => void;
 }) {
-  const isBooked = !!slot.bookedBy;
-  const isBookedByMe = slot.bookedBy === currentUserEmail;
-
   return (
-    <View style={[styles.slotCard, isBooked ? styles.slotBooked : styles.slotOpen]}>
+    <View style={[styles.slotCard, styles.slotOpen]}>
       <View style={styles.slotInfo}>
         <ThemedText style={styles.slotTime}>
           {slot.startTime} – {slot.endTime}
         </ThemedText>
-        {!isTherapist && (
-          <ThemedText style={styles.slotTherapist}>{slot.therapistName}</ThemedText>
-        )}
-        {isBooked && isTherapist && (
-          <ThemedText style={styles.slotBookedBy}>Booked by {slot.bookedByName}</ThemedText>
-        )}
-        {isBooked && !isTherapist && isBookedByMe && (
-          <ThemedText style={styles.slotBookedBy}>Your booking</ThemedText>
-        )}
-        {isBooked && !isTherapist && !isBookedByMe && (
-          <ThemedText style={styles.slotBookedBy}>Unavailable</ThemedText>
-        )}
-        {!isBooked && (
-          <ThemedText style={[styles.slotStatus, { color: GREEN }]}>Available</ThemedText>
-        )}
+        <ThemedText style={[styles.slotStatus, { color: GREEN }]}>Available</ThemedText>
       </View>
-
-      <View style={styles.slotActions}>
-        {/* Therapist can delete unbooked slots */}
-        {isTherapist && isOwnSlot && !isBooked && (
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: RED }]} onPress={onDelete}>
-            <ThemedText style={styles.actionBtnText}>Remove</ThemedText>
-          </TouchableOpacity>
-        )}
-        {/* Therapist can see booked slots — cancel on behalf */}
-        {isTherapist && isOwnSlot && isBooked && (
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: AMBER }]} onPress={onCancel}>
-            <ThemedText style={styles.actionBtnText}>Cancel</ThemedText>
-          </TouchableOpacity>
-        )}
-        {/* Student can book open slots */}
-        {!isTherapist && !isBooked && (
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: GREEN }]} onPress={onBook}>
-            <ThemedText style={styles.actionBtnText}>Book</ThemedText>
-          </TouchableOpacity>
-        )}
-        {/* Student can cancel own booking */}
-        {!isTherapist && isBookedByMe && (
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: RED }]} onPress={onCancel}>
-            <ThemedText style={styles.actionBtnText}>Cancel</ThemedText>
-          </TouchableOpacity>
-        )}
-      </View>
+      <TouchableOpacity style={[styles.actionBtn, { backgroundColor: RED }]} onPress={onDelete}>
+        <ThemedText style={styles.actionBtnText}>Remove</ThemedText>
+      </TouchableOpacity>
     </View>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ─── Main Calendar Screen ────────────────────────────────────
+// ─── Main Calendar Screen (Therapist Only) ───────────────────
 // ═══════════════════════════════════════════════════════════════
 export default function CalendarScreen() {
   const { user } = useAuth();
-  const {
-    addSlot,
-    removeSlot,
-    bookSlot,
-    cancelBooking,
-    getSlotsForDate,
-    getMarkedDates,
-    getBookedSlots,
-  } = useAvailability();
+  const { addSlot, removeSlot, getSlotsForDate, getMarkedDates } = useAvailability();
 
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState(false);
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  const isTherapist = user?.role === 'therapist';
   const textColor = useThemeColor({}, 'text');
   const bgColor = useThemeColor({}, 'background');
 
-  // Calendar marks
+  // Calendar marks — show dots on dates that have slots
   const markedDates = useMemo(() => {
-    const marks = isTherapist
-      ? getMarkedDates(user?.email)
-      : getMarkedDates(); // students see all therapists
+    if (!user) return {};
+    const marks = getMarkedDates(user.email);
     if (selectedDate) {
       return {
         ...marks,
@@ -228,24 +163,13 @@ export default function CalendarScreen() {
       };
     }
     return marks;
-  }, [selectedDate, getMarkedDates, isTherapist, user?.email]);
+  }, [selectedDate, getMarkedDates, user]);
 
-  // Slots for the selected day
+  // Slots for the selected day (own slots only)
   const daySlots = useMemo(() => {
-    if (!selectedDate) return [];
-    const all = getSlotsForDate(selectedDate);
-    if (isTherapist) {
-      return all.filter((s) => s.therapistEmail === user?.email);
-    }
-    // Students see all open slots + their own bookings for the day
-    return all.filter((s) => !s.bookedBy || s.bookedBy === user?.email);
-  }, [selectedDate, getSlotsForDate, isTherapist, user?.email]);
-
-  // My upcoming bookings (student only)
-  const myBookings = useMemo(() => {
-    if (isTherapist || !user) return [];
-    return getBookedSlots(user.email).filter((s) => s.date >= new Date().toISOString().slice(0, 10));
-  }, [isTherapist, user, getBookedSlots]);
+    if (!selectedDate || !user) return [];
+    return getSlotsForDate(selectedDate, user.email);
+  }, [selectedDate, getSlotsForDate, user]);
 
   const handleAddSlot = async (start: string, end: string) => {
     if (!user) return;
@@ -259,13 +183,14 @@ export default function CalendarScreen() {
     setShowAddModal(false);
   };
 
-  const confirmAction = (title: string, message: string, action: () => Promise<void>) => {
+  const confirmRemove = (slot: TimeSlot) => {
+    const msg = `Remove ${slot.startTime}–${slot.endTime}?`;
     if (Platform.OS === 'web') {
-      if (window.confirm(`${title}\n${message}`)) action();
+      if (window.confirm(msg)) removeSlot(slot.id);
     } else {
-      Alert.alert(title, message, [
+      Alert.alert('Remove Slot', msg, [
         { text: 'No', style: 'cancel' },
-        { text: 'Yes', onPress: action },
+        { text: 'Yes', onPress: () => removeSlot(slot.id) },
       ]);
     }
   };
@@ -276,13 +201,9 @@ export default function CalendarScreen() {
       <ScrollView contentContainerStyle={[styles.container, isWide && styles.containerWide]}>
         {/* Header */}
         <View style={styles.header}>
-          <ThemedText style={styles.title}>
-            {isTherapist ? 'Manage Availability' : 'Book Appointment'}
-          </ThemedText>
+          <ThemedText style={styles.title}>Manage Availability</ThemedText>
           <ThemedText style={styles.subtitle}>
-            {isTherapist
-              ? 'Select a date and add your available time slots'
-              : 'Browse therapist availability and book a session'}
+            Select a date and add your available time slots
           </ThemedText>
         </View>
 
@@ -316,24 +237,18 @@ export default function CalendarScreen() {
             {selectedDate ? (
               <>
                 <View style={styles.slotHeader}>
-                  <ThemedText style={styles.slotHeaderText}>
-                    {selectedDate}
-                  </ThemedText>
-                  {isTherapist && (
-                    <TouchableOpacity
-                      style={styles.addSlotBtn}
-                      onPress={() => setShowAddModal(true)}>
-                      <ThemedText style={styles.addSlotBtnText}>+ Add Slot</ThemedText>
-                    </TouchableOpacity>
-                  )}
+                  <ThemedText style={styles.slotHeaderText}>{selectedDate}</ThemedText>
+                  <TouchableOpacity
+                    style={styles.addSlotBtn}
+                    onPress={() => setShowAddModal(true)}>
+                    <ThemedText style={styles.addSlotBtnText}>+ Add Slot</ThemedText>
+                  </TouchableOpacity>
                 </View>
 
                 {daySlots.length === 0 ? (
                   <View style={styles.emptyState}>
                     <ThemedText style={styles.emptyText}>
-                      {isTherapist
-                        ? 'No slots added for this date yet.'
-                        : 'No available slots for this date.'}
+                      No slots added for this date yet.
                     </ThemedText>
                   </View>
                 ) : (
@@ -341,27 +256,7 @@ export default function CalendarScreen() {
                     <SlotCard
                       key={slot.id}
                       slot={slot}
-                      isTherapist={isTherapist}
-                      isOwnSlot={slot.therapistEmail === user?.email}
-                      currentUserEmail={user?.email ?? ''}
-                      currentUserName={user?.name ?? ''}
-                      onDelete={() =>
-                        confirmAction('Remove Slot', `Remove ${slot.startTime}–${slot.endTime}?`, () =>
-                          removeSlot(slot.id),
-                        )
-                      }
-                      onBook={() =>
-                        confirmAction(
-                          'Book Appointment',
-                          `Book with ${slot.therapistName} at ${slot.startTime}–${slot.endTime}?`,
-                          () => bookSlot(slot.id, user!.email, user!.name),
-                        )
-                      }
-                      onCancel={() =>
-                        confirmAction('Cancel', 'Cancel this booking?', () =>
-                          cancelBooking(slot.id),
-                        )
-                      }
+                      onDelete={() => confirmRemove(slot)}
                     />
                   ))
                 )}
@@ -369,53 +264,23 @@ export default function CalendarScreen() {
             ) : (
               <View style={styles.emptyState}>
                 <ThemedText style={styles.emptyText}>
-                  Select a date to {isTherapist ? 'manage availability' : 'view available slots'}
+                  Select a date to manage availability
                 </ThemedText>
               </View>
             )}
           </View>
         </View>
 
-        {/* Student: My Upcoming Bookings */}
-        {!isTherapist && myBookings.length > 0 && (
-          <View style={styles.bookingsSection}>
-            <ThemedText style={styles.bookingsTitle}>My Upcoming Bookings</ThemedText>
-            {myBookings.map((slot) => (
-              <View key={slot.id} style={[styles.slotCard, styles.slotBooked]}>
-                <View style={styles.slotInfo}>
-                  <ThemedText style={styles.slotTime}>
-                    {slot.date} · {slot.startTime} – {slot.endTime}
-                  </ThemedText>
-                  <ThemedText style={styles.slotTherapist}>{slot.therapistName}</ThemedText>
-                </View>
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: RED }]}
-                  onPress={() =>
-                    confirmAction('Cancel Booking', 'Cancel this booking?', () =>
-                      cancelBooking(slot.id),
-                    )
-                  }>
-                  <ThemedText style={styles.actionBtnText}>Cancel</ThemedText>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
-
         {/* Legend */}
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: GREEN }]} />
-            <ThemedText style={styles.legendLabel}>Available</ThemedText>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: AMBER }]} />
-            <ThemedText style={styles.legendLabel}>Fully booked</ThemedText>
+            <ThemedText style={styles.legendLabel}>Has availability</ThemedText>
           </View>
         </View>
       </ScrollView>
 
-      {/* Add Slot Modal (therapist only) */}
+      {/* Add Slot Modal */}
       <AddSlotModal
         visible={showAddModal}
         date={selectedDate}
@@ -471,15 +336,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   slotOpen: { borderColor: GREEN, backgroundColor: 'rgba(16,185,129,0.06)' },
-  slotBooked: { borderColor: AMBER, backgroundColor: 'rgba(245,158,11,0.06)' },
 
   slotInfo: { flex: 1, marginRight: 10 },
   slotTime: { fontSize: 16, fontWeight: '600' },
-  slotTherapist: { fontSize: 13, opacity: 0.7, marginTop: 2 },
-  slotBookedBy: { fontSize: 13, color: AMBER, marginTop: 2 },
   slotStatus: { fontSize: 13, marginTop: 2 },
 
-  slotActions: { flexDirection: 'row', gap: 8 },
   actionBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   actionBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
 
@@ -488,9 +349,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: { opacity: 0.5, fontSize: 14, textAlign: 'center' },
-
-  bookingsSection: { marginTop: 8, marginBottom: 24 },
-  bookingsTitle: { fontSize: 20, fontWeight: '700', marginBottom: 12 },
 
   legend: {
     flexDirection: 'row',
