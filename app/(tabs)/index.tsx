@@ -1,4 +1,4 @@
-import { DashboardCard, StatBadge } from '@/components/dashboard-card';
+import { DashboardCard, QuickAction, StatBadge } from '@/components/dashboard-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/auth-context';
@@ -6,13 +6,9 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  useWindowDimensions
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { DashboardCard, QuickAction, StatBadge } from '@/components/dashboard-card';
-import { useAuth } from '@/contexts/auth-context';
 import { useAppointments } from '@/contexts/appointments-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -420,6 +416,13 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     textAlign: 'center',
     paddingVertical: 8,
+  },
+
+  // Quick actions
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
 
   // Workshops
