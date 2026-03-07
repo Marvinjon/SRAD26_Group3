@@ -5,9 +5,9 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
-import { AppointmentsProvider } from '@/contexts/appointments-context';
+import { AvailabilityProvider } from '@/contexts/availability-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 function RootNavigator() {
   const { user, isLoading } = useAuth();
@@ -48,12 +48,12 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <AppointmentsProvider>
+      <AvailabilityProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <RootNavigator />
           <StatusBar style="auto" />
         </ThemeProvider>
-      </AppointmentsProvider>
+      </AvailabilityProvider>
     </AuthProvider>
   );
 }

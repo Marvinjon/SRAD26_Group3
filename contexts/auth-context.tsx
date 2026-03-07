@@ -7,6 +7,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  selectedTherapistId?: string;
 }
 
 interface AuthContextType {
@@ -15,6 +16,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
+  selectTherapist: (therapistId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -96,8 +98,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }
 
+  async function selectTherapist(therapistId: string) {
+  if (!user) return;
+
+  const updatedUser: User = { ...user, selectedTherapistId: therapistId };
+  await AsyncStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+  setUser(updatedUser);
+}
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, selectTherapist }}>
       {children}
     </AuthContext.Provider>
   );

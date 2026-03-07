@@ -1,10 +1,12 @@
-import React from 'react';
+import { DashboardCard, StatBadge } from '@/components/dashboard-card';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { useAuth } from '@/contexts/auth-context';
 import {
-  StyleSheet,
   ScrollView,
+  StyleSheet,
   View,
-  useWindowDimensions,
-  Platform,
+  useWindowDimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
@@ -60,15 +62,6 @@ function StudentDashboard({ name }: { name: string }) {
         <StatBadge value="7.2h" label="Avg. sleep" color="#8B5CF6" />
         <StatBadge value="3" label="Check-ins" color="#10B981" />
       </View>
-
-      <DashboardCard title="Quick Actions">
-        <View style={styles.actionsGrid}>
-          <QuickAction icon="📝" label="Write Diary" color="#5B8DEF" />
-          <QuickAction icon="📅" label="Book Appointment" color="#8B5CF6" />
-          <QuickAction icon="📊" label="View Trends" color="#10B981" />
-          <QuickAction icon="🆘" label="Get Support" color="#EF4444" />
-        </View>
-      </DashboardCard>
 
       <View style={isWide ? styles.twoColRow : undefined}>
         <DashboardCard title="Upcoming" accent="#5B8DEF" style={isWide ? styles.halfCard : undefined}>
@@ -220,7 +213,6 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-  const bgColor = useThemeColor({}, 'background');
 
   const isTherapist = user?.role === 'therapist';
 
@@ -313,13 +305,6 @@ const styles = StyleSheet.create({
   statsRowWide: {
     flexDirection: 'row',
     gap: 12,
-  },
-
-  // Quick actions
-  actionsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
   },
 
   // Two column
