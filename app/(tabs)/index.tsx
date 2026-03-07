@@ -1,4 +1,4 @@
-import { DashboardCard, StatBadge } from '@/components/dashboard-card';
+import { DashboardCard, QuickAction, StatBadge } from '@/components/dashboard-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/auth-context';
@@ -6,9 +6,11 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  useWindowDimensions
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppointments } from '@/contexts/appointments-context';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -124,6 +126,7 @@ function StudentDashboard({ name }: { name: string }) {
 function TherapistDashboard({ name }: { name: string }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
+  const { appointments, isLoading } = useAppointments();
 
   return (
     <>
@@ -140,22 +143,34 @@ function TherapistDashboard({ name }: { name: string }) {
         <StatBadge value="2" label="Workshops" color="#10B981" />
       </View>
 
-      <DashboardCard title="Today's Schedule" accent="#5B8DEF">
-        {[
-          { time: '09:00', name: 'Anna Jónsdóttir', type: 'Individual' },
-          { time: '10:30', name: 'Guðmundur Einarsson', type: 'Individual' },
-          { time: '13:00', name: 'Stress Management Group', type: 'Workshop' },
-          { time: '15:00', name: 'Katrín Ólafsdóttir', type: 'Individual' },
-        ].map((session, i) => (
-          <View key={i} style={styles.scheduleItem}>
-            <ThemedText style={styles.scheduleTime}>{session.time}</ThemedText>
-            <View style={styles.scheduleDivider} />
-            <View style={styles.scheduleInfo}>
-              <ThemedText style={styles.scheduleName}>{session.name}</ThemedText>
-              <ThemedText style={styles.scheduleType}>{session.type}</ThemedText>
+      <DashboardCard title="Quick Actions">
+        <View style={styles.actionsGrid}>
+          <QuickAction icon="📅" label="Manage Availability" color="#5B8DEF" />
+          <QuickAction icon="🎓" label="Create Workshop" color="#8B5CF6" />
+          <QuickAction icon="📢" label="Send Notification" color="#F59200" />
+          <QuickAction icon="👤" label="View Clients" color="#10B981" />
+        </View>
+      </DashboardCard>
+
+      <DashboardCard title="Booked Appointments" accent="#5B8DEF">
+        {isLoading ? (
+          <ThemedText style={styles.scheduleEmpty}>Loading appointments...</ThemedText>
+        ) : appointments.length === 0 ? (
+          <ThemedText style={styles.scheduleEmpty}>No booked appointments yet.</ThemedText>
+        ) : (
+          appointments.map((appointment) => (
+            <View key={appointment.id} style={styles.scheduleItem}>
+              <ThemedText style={styles.scheduleTime}>{appointment.time}</ThemedText>
+              <View style={styles.scheduleDivider} />
+              <View style={styles.scheduleInfo}>
+                <ThemedText style={styles.scheduleName}>{appointment.studentName}</ThemedText>
+                <ThemedText style={styles.scheduleType}>
+                  {appointment.date} - {appointment.type} - {appointment.status}
+                </ThemedText>
+              </View>
             </View>
-          </View>
-        ))}
+          ))
+        )}
       </DashboardCard>
 
       <View style={isWide ? styles.twoColRow : undefined}>
@@ -395,6 +410,19 @@ const styles = StyleSheet.create({
   scheduleType: {
     fontSize: 12,
     opacity: 0.5,
+  },
+  scheduleEmpty: {
+    fontSize: 13,
+    opacity: 0.6,
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+
+  // Quick actions
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
 
   // Workshops
