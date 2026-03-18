@@ -2,15 +2,37 @@ import { DashboardCard, QuickAction, StatBadge } from '@/components/dashboard-ca
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/auth-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppointments } from '@/contexts/appointments-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+
+const MOOD_STORAGE_KEY = 'mindtrack_mood_log';
+
+type MoodLog = Record<string, number>;
+
+function formatDateKey(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+const MOOD_OPTIONS = [
+  { value: 5, emoji: '😊', label: 'Great' },
+  { value: 4, emoji: '🙂', label: 'Good' },
+  { value: 3, emoji: '😐', label: 'Okay' },
+  { value: 2, emoji: '😔', label: 'Low' },
+  { value: 1, emoji: '😢', label: 'Rough' },
+];
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -31,6 +53,79 @@ function getToday(): string {
 function StudentDashboard({ name }: { name: string }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
+  const textColor = useThemeColor({}, 'text');
+  const [moodLog, setMoodLog] = useState<MoodLog>({});
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadMoodLog() {
+      try {
+        const stored = await AsyncStorage.getItem(MOOD_STORAGE_KEY);
+        if (stored && mounted) {
+          setMoodLog(JSON.parse(stored));
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    loadMoodLog();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const todayKey = formatDateKey(new Date());
+  const todayMood = moodLog[todayKey];
+
+  const { streak, avgMood, checkins7d } = useMemo(() => {
+    const today = new Date();
+    const last7Keys: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      last7Keys.push(formatDateKey(d));
+    }
+
+    const moodValues = last7Keys
+      .map((key) => moodLog[key])
+      .filter((value): value is number => typeof value === 'number');
+
+    const checkins = moodValues.length;
+    const avg = checkins === 0 ? null : moodValues.reduce((sum, v) => sum + v, 0) / checkins;
+
+    let streakCount = 0;
+    for (const key of last7Keys) {
+      if (typeof moodLog[key] === 'number') {
+        streakCount += 1;
+      } else {
+        break;
+      }
+    }
+
+    return {
+      streak: streakCount,
+      avgMood: avg,
+      checkins7d: checkins,
+    };
+  }, [moodLog]);
+
+  async function handleMoodSelect(value: number) {
+    const next: MoodLog = {
+      ...moodLog,
+      [todayKey]: value,
+    };
+
+    setMoodLog(next);
+
+    try {
+      await AsyncStorage.setItem(MOOD_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage errors
+    }
+  }
 
   return (
     <>
@@ -44,19 +139,46 @@ function StudentDashboard({ name }: { name: string }) {
       <DashboardCard accent="#FFB020">
         <ThemedText style={styles.checkinPrompt}>How are you feeling today?</ThemedText>
         <View style={styles.moodRow}>
-          {['😊', '🙂', '😐', '😔', '😢'].map((emoji, i) => (
-            <View key={i} style={styles.moodOption}>
-              <ThemedText style={styles.moodEmoji}>{emoji}</ThemedText>
-            </View>
-          ))}
+          {MOOD_OPTIONS.map((option) => {
+            const isSelected = option.value === todayMood;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.moodOption,
+                  { backgroundColor: textColor + '08' },
+                  isSelected && styles.moodOptionSelected,
+                ]}
+                onPress={() => handleMoodSelect(option.value)}
+                activeOpacity={0.8}
+              >
+                <ThemedText style={styles.moodEmoji}>{option.emoji}</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.moodLabel,
+                    { color: textColor + '99' },
+                    isSelected && styles.moodLabelSelected,
+                  ]}
+                >
+                  {option.label}
+                </ThemedText>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-        <ThemedText style={styles.checkinHint}>Tap to log your mood</ThemedText>
+        <ThemedText style={styles.checkinHint}>
+          {todayMood ? 'Mood logged for today' : 'Tap to log your mood'}
+        </ThemedText>
       </DashboardCard>
 
       <View style={isWide ? styles.statsRowWide : styles.statsRow}>
-        <StatBadge value="5" label="Day streak" color="#5B8DEF" />
-        <StatBadge value="7.2h" label="Avg. sleep" color="#8B5CF6" />
-        <StatBadge value="3" label="Check-ins" color="#10B981" />
+        <StatBadge value={`${streak}`} label="Day streak" color="#5B8DEF" />
+        <StatBadge
+          value={avgMood ? avgMood.toFixed(1) : '—'}
+          label="Avg. mood (7d)"
+          color="#8B5CF6"
+        />
+        <StatBadge value={`${checkins7d}`} label="Check-ins (7d)" color="#10B981" />
       </View>
 
       <View style={isWide ? styles.twoColRow : undefined}>
@@ -278,14 +400,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   moodOption: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 64,
+    height: 70,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
   },
   moodEmoji: {
     fontSize: 32,
+  },
+  moodLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  moodLabelSelected: {
+    color: '#5B8DEF',
+  },
+  moodOptionSelected: {
+    borderWidth: 1,
+    borderColor: '#5B8DEF',
   },
   checkinHint: {
     textAlign: 'center',
