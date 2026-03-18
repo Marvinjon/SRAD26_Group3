@@ -14,10 +14,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppointments } from '@/contexts/appointments-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { THERAPISTS } from '@/constants/therapists_list';
+import { useAvailableAppointments } from '@/contexts/available-appointments-context';
+import { useWorkshops } from '@/contexts/workshops-context';
 
 const MOOD_STORAGE_KEY = 'mindtrack_mood_log';
+const BOOKINGS_KEY = 'mindtrack_booked_appointments';
 
 type MoodLog = Record<string, number>;
+type BookingMap = Record<string, string>;
 
 function formatDateKey(date: Date): string {
   const yyyy = date.getFullYear();
@@ -33,6 +38,20 @@ const MOOD_OPTIONS = [
   { value: 2, emoji: '😔', label: 'Low' },
   { value: 1, emoji: '😢', label: 'Rough' },
 ];
+
+function formatShortDate(date: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(`${date}T12:00:00`));
+}
+
+function isUpcoming(date: string, time: string): boolean {
+  const now = new Date();
+  const start = new Date(`${date}T${time}:00`);
+  return start.getTime() >= now.getTime();
+}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -51,10 +70,14 @@ function getToday(): string {
 
 // ─── Student / Employee Dashboard ────────────────────────────
 function StudentDashboard({ name }: { name: string }) {
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
   const textColor = useThemeColor({}, 'text');
+  const { slots } = useAvailableAppointments();
+  const { workshops } = useWorkshops();
   const [moodLog, setMoodLog] = useState<MoodLog>({});
+  const [bookings, setBookings] = useState<BookingMap>({});
 
   useEffect(() => {
     let mounted = true;
@@ -71,6 +94,27 @@ function StudentDashboard({ name }: { name: string }) {
     }
 
     loadMoodLog();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadBookings() {
+      try {
+        const stored = await AsyncStorage.getItem(BOOKINGS_KEY);
+        if (stored && mounted) {
+          setBookings(JSON.parse(stored));
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    loadBookings();
 
     return () => {
       mounted = false;
@@ -111,6 +155,52 @@ function StudentDashboard({ name }: { name: string }) {
       checkins7d: checkins,
     };
   }, [moodLog]);
+
+  const sortedAppointments = useMemo(
+    () =>
+      slots
+        .slice()
+        .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`)),
+    [slots],
+  );
+
+  const sortedWorkshops = useMemo(
+    () =>
+      workshops
+        .slice()
+        .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`)),
+    [workshops],
+  );
+
+  const upcomingAppointments = useMemo(() => {
+    if (!user?.email) return [];
+
+    return sortedAppointments
+      .filter((slot) => bookings[slot.id] === user.email)
+      .filter((slot) => isUpcoming(slot.date, slot.startTime))
+      .map((slot) => {
+        const therapist = THERAPISTS.find((item) => item.id === slot.therapistId);
+        return {
+          id: slot.id,
+          title: therapist ? `Session with ${therapist.name}` : 'Counselling Session',
+          meta: `${formatShortDate(slot.date)} · ${slot.startTime} - ${slot.endTime}`,
+          detail: `${slot.mode} · ${slot.location}`,
+        };
+      });
+  }, [bookings, user?.email, sortedAppointments]);
+
+  const upcomingWorkshops = useMemo(
+    () =>
+      sortedWorkshops.filter((workshop) => isUpcoming(workshop.date, workshop.startTime)).map(
+        (workshop) => ({
+          id: workshop.id,
+          title: workshop.title,
+          meta: `${formatShortDate(workshop.date)} · ${workshop.startTime}`,
+          detail: workshop.location,
+        }),
+      ),
+    [sortedWorkshops],
+  );
 
   async function handleMoodSelect(value: number) {
     const next: MoodLog = {
@@ -183,20 +273,39 @@ function StudentDashboard({ name }: { name: string }) {
 
       <View style={isWide ? styles.twoColRow : undefined}>
         <DashboardCard title="Upcoming" accent="#5B8DEF" style={isWide ? styles.halfCard : undefined}>
-          <View style={styles.appointmentItem}>
-            <View style={styles.appointmentDot} />
-            <View style={styles.appointmentInfo}>
-              <ThemedText style={styles.appointmentTitle}>Counselling Session</ThemedText>
-              <ThemedText style={styles.appointmentMeta}>Thu, Feb 27 at 14:00</ThemedText>
-            </View>
-          </View>
-          <View style={styles.appointmentItem}>
-            <View style={[styles.appointmentDot, { backgroundColor: '#8B5CF6' }]} />
-            <View style={styles.appointmentInfo}>
-              <ThemedText style={styles.appointmentTitle}>Stress Workshop</ThemedText>
-              <ThemedText style={styles.appointmentMeta}>Mon, Mar 3 at 10:00</ThemedText>
-            </View>
-          </View>
+          <ThemedText style={styles.upcomingSectionTitle}>Appointments</ThemedText>
+          {upcomingAppointments.length === 0 ? (
+            <ThemedText style={styles.upcomingEmpty}>No upcoming appointments yet.</ThemedText>
+          ) : (
+            upcomingAppointments.map((item) => (
+              <View key={item.id} style={styles.upcomingItem}>
+                <View style={styles.appointmentDot} />
+                <View style={styles.appointmentInfo}>
+                  <ThemedText style={styles.appointmentTitle}>{item.title}</ThemedText>
+                  <ThemedText style={styles.appointmentMeta}>{item.meta}</ThemedText>
+                  <ThemedText style={styles.appointmentMeta}>{item.detail}</ThemedText>
+                </View>
+              </View>
+            ))
+          )}
+
+          <View style={[styles.upcomingDivider, { backgroundColor: textColor + '10' }]} />
+
+          <ThemedText style={styles.upcomingSectionTitle}>Workshops</ThemedText>
+          {upcomingWorkshops.length === 0 ? (
+            <ThemedText style={styles.upcomingEmpty}>No upcoming workshops yet.</ThemedText>
+          ) : (
+            upcomingWorkshops.map((item) => (
+              <View key={item.id} style={styles.upcomingItem}>
+                <View style={[styles.appointmentDot, { backgroundColor: '#8B5CF6' }]} />
+                <View style={styles.appointmentInfo}>
+                  <ThemedText style={styles.appointmentTitle}>{item.title}</ThemedText>
+                  <ThemedText style={styles.appointmentMeta}>{item.meta}</ThemedText>
+                  <ThemedText style={styles.appointmentMeta}>{item.detail}</ThemedText>
+                </View>
+              </View>
+            ))
+          )}
         </DashboardCard>
 
         <DashboardCard title="Weekly Insight" accent="#10B981" style={isWide ? styles.halfCard : undefined}>
@@ -452,11 +561,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  upcomingItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
   appointmentDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
     backgroundColor: '#5B8DEF',
+    marginTop: 6,
   },
   appointmentInfo: {
     flex: 1,
@@ -467,6 +582,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   appointmentMeta: {
+    fontSize: 13,
+    opacity: 0.5,
+  },
+  upcomingSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    opacity: 0.55,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  upcomingDivider: {
+    height: 1,
+    marginVertical: 8,
+  },
+  upcomingEmpty: {
     fontSize: 13,
     opacity: 0.5,
   },
