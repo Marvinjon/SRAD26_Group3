@@ -1,18 +1,22 @@
 import { DashboardCard, QuickAction, StatBadge } from '@/components/dashboard-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth, type User } from '@/contexts/auth-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
+  Modal,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppointments } from '@/contexts/appointments-context';
+import { useWorkshops, type Workshop } from '@/contexts/workshops-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { THERAPISTS } from '@/constants/therapists_list';
 import { useAvailableAppointments } from '@/contexts/available-appointments-context';
@@ -68,16 +72,202 @@ function getToday(): string {
   });
 }
 
+interface CreateWorkshopData {
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  maxParticipants: number;
+}
+
+function CreateWorkshopModal({
+  visible,
+  onClose,
+  onCreate,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onCreate: (workshop: CreateWorkshopData) => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [maxParticipants, setMaxParticipants] = useState('10');
+  const bg = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+
+  const reset = () => {
+    setTitle('');
+    setDescription('');
+    setDate('');
+    setTime('');
+    setMaxParticipants('10');
+  };
+
+  const handleCreate = () => {
+    if (!title.trim() || !date.trim() || !time.trim()) {
+      Alert.alert('Missing information', 'Please fill in a title, date, and time.');
+      return;
+    }
+
+    const max = Number(maxParticipants);
+    if (Number.isNaN(max) || max < 1) {
+      Alert.alert('Invalid capacity', 'Please enter a valid number of participants.');
+      return;
+    }
+
+    onCreate({
+      title: title.trim(),
+      description: description.trim(),
+      date: date.trim(),
+      time: time.trim(),
+      maxParticipants: max,
+    });
+    reset();
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalCard, { backgroundColor: bg }]}> 
+          <ThemedText style={styles.modalTitle}>Create workshop</ThemedText>
+
+          <TextInput
+            style={[styles.input, { color: textColor }]}
+            placeholder="Title"
+            placeholderTextColor={textColor + '80'}
+            value={title}
+            onChangeText={setTitle}
+          />
+          <TextInput
+            style={[styles.input, { color: textColor }]}
+            placeholder="Description (optional)"
+            placeholderTextColor={textColor + '80'}
+            value={description}
+            onChangeText={setDescription}
+          />
+          <TextInput
+            style={[styles.input, { color: textColor }]}
+            placeholder="Date (e.g. Mar 5)"
+            placeholderTextColor={textColor + '80'}
+            value={date}
+            onChangeText={setDate}
+          />
+          <TextInput
+            style={[styles.input, { color: textColor }]}
+            placeholder="Time (e.g. 10:00)"
+            placeholderTextColor={textColor + '80'}
+            value={time}
+            onChangeText={setTime}
+          />
+          <TextInput
+            style={[styles.input, { color: textColor }]}
+            placeholder="Max participants"
+            placeholderTextColor={textColor + '80'}
+            keyboardType="number-pad"
+            value={maxParticipants}
+            onChangeText={setMaxParticipants}
+          />
+
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => { reset(); onClose(); }}>
+              <ThemedText style={styles.cancelBtnText}>Cancel</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addBtn} onPress={handleCreate}>
+              <ThemedText style={styles.addBtnText}>Create</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function WorkshopDetailModal({
+  visible,
+  workshop,
+  user,
+  onClose,
+  onToggleRegistration,
+}: {
+  visible: boolean;
+  workshop: Workshop | null;
+  user: User | null;
+  onClose: () => void;
+  onToggleRegistration: (workshopId: string, userEmail: string) => void;
+}) {
+  const bg = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+
+  if (!workshop) {
+    return null;
+  }
+
+  const isRegistered = user ? workshop.registered.includes(user.email) : false;
+  const isFull = workshop.registered.length >= workshop.maxParticipants;
+  const canJoin = Boolean(user) && !isRegistered && !isFull;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalCard, { backgroundColor: bg }]}> 
+          <ThemedText style={styles.modalTitle}>{workshop.title}</ThemedText>
+          <ThemedText style={[styles.modalDescription, { color: textColor + 'cc' }]}>
+            {workshop.description || 'No additional details provided.'}
+          </ThemedText>
+          <ThemedText style={[styles.modalMeta, { color: textColor + '99' }]}>Host: {workshop.hostEmail}</ThemedText>
+          <ThemedText style={[styles.modalMeta, { color: textColor + '99' }]}>Date: {workshop.date} • {workshop.time}</ThemedText>
+
+          <View style={styles.modalInfoRow}>
+            <View style={styles.modalInfoBox}>
+              <ThemedText style={styles.modalInfoLabel}>Registered</ThemedText>
+              <ThemedText style={styles.modalInfoValue}>
+                {workshop.registered.length}/{workshop.maxParticipants}
+              </ThemedText>
+            </View>
+            <View style={styles.modalInfoBox}>
+              <ThemedText style={styles.modalInfoLabel}>Status</ThemedText>
+              <ThemedText style={styles.modalInfoValue}>
+                {isRegistered ? 'Joined' : isFull ? 'Full' : 'Open'}
+              </ThemedText>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.addBtn,
+              isRegistered && styles.joinBtnSelected,
+              !user || (!canJoin && !isRegistered) ? styles.actionBtnDisabled : undefined,
+            ]}
+            onPress={() => user && onToggleRegistration(workshop.id, user.email)}
+            disabled={!user || (!canJoin && !isRegistered)}
+          >
+            <ThemedText style={[styles.addBtnText, (isRegistered || (!canJoin && !isRegistered)) && { color: '#fff' }]}> 
+              {user ? (isRegistered ? 'Leave workshop' : isFull ? 'Workshop full' : 'Join workshop') : 'Login to join'}
+            </ThemedText>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.cancelBtn, { marginTop: 10 }]} onPress={onClose}>
+            <ThemedText style={styles.cancelBtnText}>Close</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Student / Employee Dashboard ────────────────────────────
 function StudentDashboard({ name }: { name: string }) {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
   const textColor = useThemeColor({}, 'text');
-  const { slots } = useAvailableAppointments();
-  const { workshops } = useWorkshops();
+  const { workshops, toggleRegistration } = useWorkshops();
+  const { user } = useAuth();
   const [moodLog, setMoodLog] = useState<MoodLog>({});
-  const [bookings, setBookings] = useState<BookingMap>({});
+  const [selectedWorkshopId, setSelectedWorkshopId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -156,51 +346,8 @@ function StudentDashboard({ name }: { name: string }) {
     };
   }, [moodLog]);
 
-  const sortedAppointments = useMemo(
-    () =>
-      slots
-        .slice()
-        .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`)),
-    [slots],
-  );
-
-  const sortedWorkshops = useMemo(
-    () =>
-      workshops
-        .slice()
-        .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`)),
-    [workshops],
-  );
-
-  const upcomingAppointments = useMemo(() => {
-    if (!user?.email) return [];
-
-    return sortedAppointments
-      .filter((slot) => bookings[slot.id] === user.email)
-      .filter((slot) => isUpcoming(slot.date, slot.startTime))
-      .map((slot) => {
-        const therapist = THERAPISTS.find((item) => item.id === slot.therapistId);
-        return {
-          id: slot.id,
-          title: therapist ? `Session with ${therapist.name}` : 'Counselling Session',
-          meta: `${formatShortDate(slot.date)} · ${slot.startTime} - ${slot.endTime}`,
-          detail: `${slot.mode} · ${slot.location}`,
-        };
-      });
-  }, [bookings, user?.email, sortedAppointments]);
-
-  const upcomingWorkshops = useMemo(
-    () =>
-      sortedWorkshops.filter((workshop) => isUpcoming(workshop.date, workshop.startTime)).map(
-        (workshop) => ({
-          id: workshop.id,
-          title: workshop.title,
-          meta: `${formatShortDate(workshop.date)} · ${workshop.startTime}`,
-          detail: workshop.location,
-        }),
-      ),
-    [sortedWorkshops],
-  );
+  const selectedWorkshop = workshops.find((w) => w.id === selectedWorkshopId) ?? null;
+  const closeWorkshopModal = () => setSelectedWorkshopId(null);
 
   async function handleMoodSelect(value: number) {
     const next: MoodLog = {
@@ -272,39 +419,47 @@ function StudentDashboard({ name }: { name: string }) {
       </View>
 
       <View style={isWide ? styles.twoColRow : undefined}>
-        <DashboardCard title="Upcoming" accent="#5B8DEF" style={isWide ? styles.halfCard : undefined}>
-          <ThemedText style={styles.upcomingSectionTitle}>Appointments</ThemedText>
-          {upcomingAppointments.length === 0 ? (
-            <ThemedText style={styles.upcomingEmpty}>No upcoming appointments yet.</ThemedText>
+        <DashboardCard title="Upcoming workshops" accent="#5B8DEF" style={isWide ? styles.halfCard : undefined}>
+          {workshops.length === 0 ? (
+            <ThemedText style={styles.scheduleEmpty}>No workshops scheduled yet.</ThemedText>
           ) : (
-            upcomingAppointments.map((item) => (
-              <View key={item.id} style={styles.upcomingItem}>
-                <View style={styles.appointmentDot} />
-                <View style={styles.appointmentInfo}>
-                  <ThemedText style={styles.appointmentTitle}>{item.title}</ThemedText>
-                  <ThemedText style={styles.appointmentMeta}>{item.meta}</ThemedText>
-                  <ThemedText style={styles.appointmentMeta}>{item.detail}</ThemedText>
-                </View>
-              </View>
-            ))
-          )}
+            workshops.map((workshop) => {
+              const isRegistered = user ? workshop.registered.includes(user.email) : false;
+              const isFull = workshop.registered.length >= workshop.maxParticipants;
+              const canJoin = Boolean(user) && !isRegistered && !isFull;
 
-          <View style={[styles.upcomingDivider, { backgroundColor: textColor + '10' }]} />
-
-          <ThemedText style={styles.upcomingSectionTitle}>Workshops</ThemedText>
-          {upcomingWorkshops.length === 0 ? (
-            <ThemedText style={styles.upcomingEmpty}>No upcoming workshops yet.</ThemedText>
-          ) : (
-            upcomingWorkshops.map((item) => (
-              <View key={item.id} style={styles.upcomingItem}>
-                <View style={[styles.appointmentDot, { backgroundColor: '#8B5CF6' }]} />
-                <View style={styles.appointmentInfo}>
-                  <ThemedText style={styles.appointmentTitle}>{item.title}</ThemedText>
-                  <ThemedText style={styles.appointmentMeta}>{item.meta}</ThemedText>
-                  <ThemedText style={styles.appointmentMeta}>{item.detail}</ThemedText>
-                </View>
-              </View>
-            ))
+              return (
+                <TouchableOpacity
+                  key={workshop.id}
+                  style={styles.workshopItem}
+                  onPress={() => setSelectedWorkshopId(workshop.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.appointmentItem}>
+                    <View style={[styles.appointmentDot, { backgroundColor: '#8B5CF6' }]} />
+                    <View style={styles.appointmentInfo}>
+                      <ThemedText style={styles.appointmentTitle}>{workshop.title}</ThemedText>
+                      <ThemedText style={styles.appointmentMeta}>
+                        {workshop.date} at {workshop.time} • {workshop.registered.length}/{workshop.maxParticipants} registered
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.joinBtn,
+                      isRegistered && styles.joinBtnSelected,
+                      !canJoin && !isRegistered && styles.joinBtnDisabled,
+                    ]}
+                    onPress={() => user && toggleRegistration(workshop.id, user.email)}
+                    disabled={!user || (!canJoin && !isRegistered)}
+                  >
+                    <ThemedText style={[styles.joinBtnText, (isRegistered || (!canJoin && !isRegistered)) && { color: '#fff' }]}>
+                      {isRegistered ? 'Joined' : isFull ? 'Full' : 'Join'}
+                    </ThemedText>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })
           )}
         </DashboardCard>
 
@@ -349,6 +504,17 @@ function StudentDashboard({ name }: { name: string }) {
           </View>
         </View>
       </DashboardCard>
+
+      <WorkshopDetailModal
+        visible={!!selectedWorkshop}
+        workshop={selectedWorkshop}
+        user={user}
+        onClose={closeWorkshopModal}
+        onToggleRegistration={(workshopId, userEmail) => {
+          toggleRegistration(workshopId, userEmail);
+          // keep modal open after toggling
+        }}
+      />
     </>
   );
 }
@@ -357,7 +523,27 @@ function StudentDashboard({ name }: { name: string }) {
 function TherapistDashboard({ name }: { name: string }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 700;
+  const { user } = useAuth();
   const { appointments, isLoading } = useAppointments();
+  const { workshops, createWorkshop, removeWorkshop, toggleRegistration } = useWorkshops();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedWorkshopId, setSelectedWorkshopId] = useState<string | null>(null);
+
+  const myWorkshops = workshops.filter((w) => w.hostEmail === user?.email);
+  const selectedWorkshop = workshops.find((w) => w.id === selectedWorkshopId) ?? null;
+  const closeWorkshopModal = () => setSelectedWorkshopId(null);
+
+  const handleCreateWorkshop = async (data: CreateWorkshopData) => {
+    if (!user) return;
+    await createWorkshop({ ...data, hostEmail: user.email });
+  };
+
+  const handleCancelWorkshop = (workshopId: string) => {
+    Alert.alert('Cancel workshop', 'Remove this workshop from the schedule?', [
+      { text: 'No', style: 'cancel' },
+      { text: 'Yes', onPress: () => removeWorkshop(workshopId) },
+    ]);
+  };
 
   return (
     <>
@@ -369,15 +555,24 @@ function TherapistDashboard({ name }: { name: string }) {
       </View>
 
       <View style={isWide ? styles.statsRowWide : styles.statsRow}>
-        <StatBadge value="4" label="Today's sessions" color="#5B8DEF" />
-        <StatBadge value="12" label="This week" color="#8B5CF6" />
-        <StatBadge value="2" label="Workshops" color="#10B981" />
+        <StatBadge value={`${appointments.length}`} label="Today's sessions" color="#5B8DEF" />
+        <StatBadge value={`${appointments.length}`} label="This week" color="#8B5CF6" />
+        <StatBadge
+          value={`${workshops.filter((w) => w.hostEmail === user?.email).length}`}
+          label="Workshops"
+          color="#10B981"
+        />
       </View>
 
       <DashboardCard title="Quick Actions">
         <View style={styles.actionsGrid}>
           <QuickAction icon="📅" label="Manage Availability" color="#5B8DEF" />
-          <QuickAction icon="🎓" label="Create Workshop" color="#8B5CF6" />
+          <QuickAction
+            icon="🎓"
+            label="Create Workshop"
+            color="#8B5CF6"
+            onPress={() => setShowCreateModal(true)}
+          />
           <QuickAction icon="📢" label="Send Notification" color="#F59200" />
           <QuickAction icon="👤" label="View Clients" color="#10B981" />
         </View>
@@ -406,15 +601,40 @@ function TherapistDashboard({ name }: { name: string }) {
 
       <View style={isWide ? styles.twoColRow : undefined}>
         <DashboardCard title="Upcoming Workshops" accent="#8B5CF6" style={isWide ? styles.halfCard : undefined}>
-          <View style={styles.workshopItem}>
-            <ThemedText style={styles.workshopTitle}>Exam Anxiety Coping</ThemedText>
-            <ThemedText style={styles.workshopMeta}>Mar 5 · 12 registered</ThemedText>
-          </View>
-          <View style={styles.workshopItem}>
-            <ThemedText style={styles.workshopTitle}>Mindful Study Habits</ThemedText>
-            <ThemedText style={styles.workshopMeta}>Mar 12 · 8 registered</ThemedText>
-          </View>
+          {myWorkshops.length === 0 ? (
+            <ThemedText style={styles.scheduleEmpty}>No workshops scheduled yet.</ThemedText>
+          ) : (
+            myWorkshops.map((workshop) => (
+              <TouchableOpacity
+                key={workshop.id}
+                style={styles.workshopItem}
+                activeOpacity={0.8}
+                onPress={() => setSelectedWorkshopId(workshop.id)}
+              >
+                <ThemedText style={styles.workshopTitle}>{workshop.title}</ThemedText>
+                <ThemedText style={styles.workshopMeta}>
+                  {workshop.date} · {workshop.registered.length}/{workshop.maxParticipants} registered
+                </ThemedText>
+                <TouchableOpacity
+                  style={[styles.cancelBtn, { alignSelf: 'flex-start', marginTop: 8 }]}
+                  onPress={() => handleCancelWorkshop(workshop.id)}
+                >
+                  <ThemedText style={styles.cancelBtnText}>Cancel</ThemedText>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))
+          )}
         </DashboardCard>
+
+        <WorkshopDetailModal
+          visible={!!selectedWorkshop}
+          workshop={selectedWorkshop}
+          user={user}
+          onClose={closeWorkshopModal}
+          onToggleRegistration={(workshopId, userEmail) => {
+            toggleRegistration(workshopId, userEmail);
+          }}
+        />
 
         <DashboardCard title="Recent Activity" accent="#10B981" style={isWide ? styles.halfCard : undefined}>
           <View style={styles.activityItem}>
@@ -431,6 +651,12 @@ function TherapistDashboard({ name }: { name: string }) {
           </View>
         </DashboardCard>
       </View>
+
+      <CreateWorkshopModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreateWorkshop}
+      />
     </>
   );
 }
@@ -715,5 +941,73 @@ const styles = StyleSheet.create({
   activityText: {
     fontSize: 14,
     opacity: 0.75,
+  },
+
+  // Workshop list
+  joinBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#5B8DEF',
+    alignSelf: 'flex-start',
+  },
+  joinBtnSelected: {
+    backgroundColor: '#10B981',
+  },
+  joinBtnDisabled: {
+    backgroundColor: '#9ca9c8',
+  },
+
+  // Create workshop modal
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 18,
+    padding: 20,
+    gap: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  cancelBtnText: {
+    fontWeight: '600',
+  },
+  addBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#5B8DEF',
+  },
+  addBtnText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });
