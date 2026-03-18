@@ -8,8 +8,6 @@ import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { AvailabilityProvider } from '@/contexts/availability-context';
 import { AppointmentsProvider } from '@/contexts/appointments-context';
-import { AvailableAppointmentsProvider } from '@/contexts/available-appointments-context';
-import { WorkshopsProvider } from '@/contexts/workshops-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 function RootNavigator() {
@@ -27,7 +25,7 @@ function RootNavigator() {
     } else if (user && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [user, isLoading, segments, router]);
+  }, [user, isLoading, segments]);
 
   if (isLoading) {
     return (
@@ -53,14 +51,10 @@ export default function RootLayout() {
     <AuthProvider>
       <AvailabilityProvider>
         <AppointmentsProvider>
-          <AvailableAppointmentsProvider>
-            <WorkshopsProvider>
-              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-                <RootNavigator />
-                <StatusBar style="auto" />
-              </ThemeProvider>
-            </WorkshopsProvider>
-          </AvailableAppointmentsProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <RootNavigator />
+            <StatusBar style="auto" />
+          </ThemeProvider>
         </AppointmentsProvider>
       </AvailabilityProvider>
     </AuthProvider>

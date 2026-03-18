@@ -104,7 +104,9 @@ export default function ProfileScreen() {
   const [contact, setContact] = useState('');
   const [bio, setBio] = useState('');
 
-  const [directory, setDirectory] = useState<{ email: string; profile: TherapistProfile }[]>([]);
+  const [directory, setDirectory] = useState<Array<{ email: string; profile: TherapistProfile }>>(
+    []
+  );
 
   const initials = (user?.name ?? '')
     .split(' ')

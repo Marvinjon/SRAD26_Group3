@@ -6,12 +6,24 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { THERAPISTS } from '@/constants/therapists_list';
 import { useAuth } from '@/contexts/auth-context';
-import { useAvailableAppointments } from '@/contexts/available-appointments-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+
+interface AppointmentSlot {
+  id: string;
+  therapistId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  mode: string;
+  location: string;
+}
 
 type BookingMap = Record<string, string>;
 
 const BOOKINGS_KEY = 'mindtrack_booked_appointments';
+const ALL_APPOINTMENTS = (require('@/data/available-appointments.json') as AppointmentSlot[])
+  .slice()
+  .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -23,7 +35,6 @@ function formatDate(date: string) {
 
 export default function TherapistsScreen() {
   const { user, selectTherapist } = useAuth();
-  const { slots } = useAvailableAppointments();
   const [bookings, setBookings] = useState<BookingMap>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -54,27 +65,19 @@ export default function TherapistsScreen() {
     };
   }, []);
 
-  const allAppointments = useMemo(
-    () =>
-      slots
-        .slice()
-        .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`)),
-    [slots],
-  );
-
   const selectedTherapist = THERAPISTS.find((therapist) => therapist.id === user?.selectedTherapistId);
 
   const selectedTherapistAppointments = useMemo(
     () =>
       selectedTherapist
-        ? allAppointments.filter((slot) => slot.therapistId === selectedTherapist.id)
+        ? ALL_APPOINTMENTS.filter((slot) => slot.therapistId === selectedTherapist.id)
         : [],
-    [selectedTherapist, allAppointments],
+    [selectedTherapist],
   );
 
   const myAppointments = useMemo(
-    () => allAppointments.filter((slot) => bookings[slot.id] === user?.email),
-    [bookings, user?.email, allAppointments],
+    () => ALL_APPOINTMENTS.filter((slot) => bookings[slot.id] === user?.email),
+    [bookings, user?.email],
   );
 
   async function handleSelectTherapist(therapistId: string) {
