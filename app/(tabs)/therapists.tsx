@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { THERAPISTS } from '@/constants/therapists_list';
+import { PAID_THERAPISTS, THERAPISTS } from '@/constants/therapists_list';
 import { useAuth } from '@/contexts/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -126,11 +126,21 @@ export default function TherapistsScreen() {
     }
   }
 
+  function handleBookPaidTherapist() {
+    setError('');
+
+    if (!canBookAppointments) {
+      setNotice('');
+      setError('Only students and university staff can book appointments.');
+      return;
+    }
+  }
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText style={styles.title}>Therapist Support</ThemedText>
-        <ThemedText style={[styles.subtitle, { color: textColor + 'A6' }]}> 
+        <ThemedText style={[styles.subtitle, { color: textColor + 'A6' }]}>
           Select a therapist and book an available appointment.
         </ThemedText>
 
@@ -188,7 +198,24 @@ export default function TherapistsScreen() {
           );
         })}
 
-        <ThemedText style={styles.sectionTitle}>Available appointments</ThemedText>
+        <ThemedText style={styles.sectionTitle}>Paid therapists</ThemedText>
+        {PAID_THERAPISTS.map((therapist) => (
+          <View key={therapist.name} style={[styles.card, { borderColor: textColor + '20' }]}>
+            <ThemedText style={styles.therapistName}>{therapist.name}</ThemedText>
+            <ThemedText style={[styles.therapistSpecialty, { color: textColor + '99' }]}>
+              Specialty: {therapist.specialty}
+            </ThemedText>
+            <ThemedText style={styles.paidTherapistPrice}>Price: {therapist.price}</ThemedText>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={handleBookPaidTherapist}
+              activeOpacity={0.8}>
+              <ThemedText style={styles.primaryButtonText}>Book</ThemedText>
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        <ThemedText style={styles.sectionTitle}>Book with your selected therapist</ThemedText>
 
         {!selectedTherapist ? (
           <View style={[styles.card, { borderColor: textColor + '20' }]}>
@@ -348,6 +375,11 @@ const styles = StyleSheet.create({
   },
   therapistSpecialty: {
     fontSize: 14,
+  },
+  paidTherapistPrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5B8DEF',
   },
   selectedBadge: {
     paddingHorizontal: 10,
