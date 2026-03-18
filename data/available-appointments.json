@@ -1,0 +1,56 @@
+[
+  {
+    "id": "apt-t1-2026-03-02-0900",
+    "therapistId": "t1",
+    "date": "2026-03-02",
+    "startTime": "09:00",
+    "endTime": "09:45",
+    "mode": "In person",
+    "location": "RU Wellbeing Center, Room 214"
+  },
+  {
+    "id": "apt-t1-2026-03-05-1330",
+    "therapistId": "t1",
+    "date": "2026-03-05",
+    "startTime": "13:30",
+    "endTime": "14:15",
+    "mode": "Online",
+    "location": "Secure video session"
+  },
+  {
+    "id": "apt-t2-2026-03-03-1030",
+    "therapistId": "t2",
+    "date": "2026-03-03",
+    "startTime": "10:30",
+    "endTime": "11:15",
+    "mode": "In person",
+    "location": "RU Wellbeing Center, Room 112"
+  },
+  {
+    "id": "apt-t2-2026-03-06-1500",
+    "therapistId": "t2",
+    "date": "2026-03-06",
+    "startTime": "15:00",
+    "endTime": "15:45",
+    "mode": "Online",
+    "location": "Secure video session"
+  },
+  {
+    "id": "apt-t3-2026-03-04-0900",
+    "therapistId": "t3",
+    "date": "2026-03-04",
+    "startTime": "09:00",
+    "endTime": "09:45",
+    "mode": "In person",
+    "location": "RU Wellbeing Center, Room 301"
+  },
+  {
+    "id": "apt-t3-2026-03-07-1130",
+    "therapistId": "t3",
+    "date": "2026-03-07",
+    "startTime": "11:30",
+    "endTime": "12:15",
+    "mode": "Online",
+    "location": "Secure video session"
+  }
+]
