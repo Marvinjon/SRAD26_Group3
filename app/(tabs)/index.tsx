@@ -18,15 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppointments } from '@/contexts/appointments-context';
 import { useWorkshops, type Workshop } from '@/contexts/workshops-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { THERAPISTS } from '@/constants/therapists_list';
-import { useAvailableAppointments } from '@/contexts/available-appointments-context';
-import { useWorkshops } from '@/contexts/workshops-context';
 
 const MOOD_STORAGE_KEY = 'mindtrack_mood_log';
-const BOOKINGS_KEY = 'mindtrack_booked_appointments';
 
 type MoodLog = Record<string, number>;
-type BookingMap = Record<string, string>;
 
 function formatDateKey(date: Date): string {
   const yyyy = date.getFullYear();
@@ -42,20 +37,6 @@ const MOOD_OPTIONS = [
   { value: 2, emoji: '😔', label: 'Low' },
   { value: 1, emoji: '😢', label: 'Rough' },
 ];
-
-function formatShortDate(date: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(`${date}T12:00:00`));
-}
-
-function isUpcoming(date: string, time: string): boolean {
-  const now = new Date();
-  const start = new Date(`${date}T${time}:00`);
-  return start.getTime() >= now.getTime();
-}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -265,7 +246,6 @@ function StudentDashboard({ name }: { name: string }) {
   const isWide = width >= 700;
   const textColor = useThemeColor({}, 'text');
   const { workshops, toggleRegistration } = useWorkshops();
-  const { user } = useAuth();
   const [moodLog, setMoodLog] = useState<MoodLog>({});
   const [selectedWorkshopId, setSelectedWorkshopId] = useState<string | null>(null);
 
@@ -284,27 +264,6 @@ function StudentDashboard({ name }: { name: string }) {
     }
 
     loadMoodLog();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadBookings() {
-      try {
-        const stored = await AsyncStorage.getItem(BOOKINGS_KEY);
-        if (stored && mounted) {
-          setBookings(JSON.parse(stored));
-        }
-      } catch {
-        // ignore storage errors
-      }
-    }
-
-    loadBookings();
 
     return () => {
       mounted = false;
