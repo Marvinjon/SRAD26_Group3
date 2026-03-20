@@ -1,20 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  StyleSheet,
-  ScrollView,
-  View,
-  TouchableOpacity,
-  useWindowDimensions,
-  TextInput,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DashboardCard } from '@/components/dashboard-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DashboardCard } from '@/components/dashboard-card';
 import { useAuth } from '@/contexts/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function ProfileField({ label, value }: { label: string; value: string }) {
   const textColor = useThemeColor({}, 'text');
@@ -88,6 +89,7 @@ export default function ProfileScreen() {
   const bgColor = useThemeColor({}, 'background');
 
   const isTherapist = user?.role === 'therapist';
+  const router = useRouter();
 
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -455,10 +457,14 @@ export default function ProfileScreen() {
                 <ThemedText style={styles.prefValue}>System</ThemedText>
               </View>
               <View style={[styles.separator, { backgroundColor: textColor + '10' }]} />
-              <View style={styles.prefRow}>
+              <TouchableOpacity
+                style={styles.prefRow}
+                onPress={() => router.push('/privacy-settings')}
+                activeOpacity={0.7}
+              >
                 <ThemedText style={styles.prefLabel}>Data Privacy</ThemedText>
-                <ThemedText style={[styles.prefValue, { color: '#5B8DEF' }]}>Private</ThemedText>
-              </View>
+                <ThemedText style={[styles.prefValue, { color: '#5B8DEF' }]}>Manage →</ThemedText>
+              </TouchableOpacity>
             </DashboardCard>
 
             <DashboardCard title="About Mind Track">
