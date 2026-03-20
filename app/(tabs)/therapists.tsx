@@ -4,14 +4,26 @@ import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { THERAPISTS } from '@/constants/therapists_list';
+import { PAID_THERAPISTS, THERAPISTS } from '@/constants/therapists_list';
 import { useAuth } from '@/contexts/auth-context';
-import { useAvailableAppointments } from '@/contexts/available-appointments-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+
+interface AppointmentSlot {
+  id: string;
+  therapistId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  mode: string;
+  location: string;
+}
 
 type BookingMap = Record<string, string>;
 
 const BOOKINGS_KEY = 'mindtrack_booked_appointments';
+const ALL_APPOINTMENTS = (require('@/data/available-appointments.json') as AppointmentSlot[])
+  .slice()
+  .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -23,7 +35,6 @@ function formatDate(date: string) {
 
 export default function TherapistsScreen() {
   const { user, selectTherapist } = useAuth();
-  const { slots } = useAvailableAppointments();
   const [bookings, setBookings] = useState<BookingMap>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -54,27 +65,19 @@ export default function TherapistsScreen() {
     };
   }, []);
 
-  const allAppointments = useMemo(
-    () =>
-      slots
-        .slice()
-        .sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`)),
-    [slots],
-  );
-
   const selectedTherapist = THERAPISTS.find((therapist) => therapist.id === user?.selectedTherapistId);
 
   const selectedTherapistAppointments = useMemo(
     () =>
       selectedTherapist
-        ? allAppointments.filter((slot) => slot.therapistId === selectedTherapist.id)
+        ? ALL_APPOINTMENTS.filter((slot) => slot.therapistId === selectedTherapist.id)
         : [],
-    [selectedTherapist, allAppointments],
+    [selectedTherapist],
   );
 
   const myAppointments = useMemo(
-    () => allAppointments.filter((slot) => bookings[slot.id] === user?.email),
-    [bookings, user?.email, allAppointments],
+    () => ALL_APPOINTMENTS.filter((slot) => bookings[slot.id] === user?.email),
+    [bookings, user?.email],
   );
 
   async function handleSelectTherapist(therapistId: string) {
@@ -123,11 +126,21 @@ export default function TherapistsScreen() {
     }
   }
 
+  function handleBookPaidTherapist() {
+    setError('');
+
+    if (!canBookAppointments) {
+      setNotice('');
+      setError('Only students and university staff can book appointments.');
+      return;
+    }
+  }
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText style={styles.title}>Therapist Support</ThemedText>
-        <ThemedText style={[styles.subtitle, { color: textColor + 'A6' }]}> 
+        <ThemedText style={[styles.subtitle, { color: textColor + 'A6' }]}>
           Select a therapist and book an available appointment.
         </ThemedText>
 
@@ -185,7 +198,24 @@ export default function TherapistsScreen() {
           );
         })}
 
-        <ThemedText style={styles.sectionTitle}>Available appointments</ThemedText>
+        <ThemedText style={styles.sectionTitle}>Paid therapists</ThemedText>
+        {PAID_THERAPISTS.map((therapist) => (
+          <View key={therapist.name} style={[styles.card, { borderColor: textColor + '20' }]}>
+            <ThemedText style={styles.therapistName}>{therapist.name}</ThemedText>
+            <ThemedText style={[styles.therapistSpecialty, { color: textColor + '99' }]}>
+              Specialty: {therapist.specialty}
+            </ThemedText>
+            <ThemedText style={styles.paidTherapistPrice}>Price: {therapist.price}</ThemedText>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={handleBookPaidTherapist}
+              activeOpacity={0.8}>
+              <ThemedText style={styles.primaryButtonText}>Book</ThemedText>
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        <ThemedText style={styles.sectionTitle}>Book with your selected therapist</ThemedText>
 
         {!selectedTherapist ? (
           <View style={[styles.card, { borderColor: textColor + '20' }]}>
@@ -345,6 +375,11 @@ const styles = StyleSheet.create({
   },
   therapistSpecialty: {
     fontSize: 14,
+  },
+  paidTherapistPrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5B8DEF',
   },
   selectedBadge: {
     paddingHorizontal: 10,
