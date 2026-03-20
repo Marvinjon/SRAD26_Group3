@@ -65,4 +65,45 @@ describe('WorkshopsProvider', () => {
 
     expect(ctx?.workshops.find((w) => w.id === createdId)).toBeUndefined();
   });
+
+  it('prevents registration when workshop is full (boundary/invalid)', async () => {
+    await act(async () => {
+      renderer.create(
+        <WorkshopsProvider>
+          <WorkshopsConsumer />
+        </WorkshopsProvider>,
+      );
+      await flushPromises();
+    });
+
+    await act(async () => {
+      await ctx?.createWorkshop({
+        title: 'Capacity Test',
+        description: 'Only one spot',
+        date: 'Mar 21',
+        time: '11:00',
+        hostEmail: 'therapist@ru.is',
+        maxParticipants: 1,
+      });
+      await flushPromises();
+    });
+
+    const workshopId = ctx?.workshops[0]?.id as string;
+
+    await act(async () => {
+      await ctx?.toggleRegistration(workshopId, 'student1@ru.is');
+      await flushPromises();
+    });
+
+    const afterFirst = ctx?.workshops.find((w) => w.id === workshopId);
+    expect(afterFirst?.registered.length).toBe(1);
+
+    await act(async () => {
+      await ctx?.toggleRegistration(workshopId, 'student2@ru.is');
+      await flushPromises();
+    });
+
+    const afterSecond = ctx?.workshops.find((w) => w.id === workshopId);
+    expect(afterSecond?.registered).toEqual(['student1@ru.is']);
+  });
 });

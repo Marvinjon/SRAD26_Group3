@@ -69,4 +69,33 @@ describe('AuthProvider', () => {
       ctx?.register('Short Pass', 'short@ru.is', '123', 'student'),
     ).rejects.toThrow();
   });
+
+  it('rejects duplicate registration and wrong password (failure cases)', async () => {
+    await act(async () => {
+      renderer.create(
+        <AuthProvider>
+          <AuthConsumer />
+        </AuthProvider>,
+      );
+      await flushPromises();
+    });
+
+    await act(async () => {
+      await ctx?.register('Grace Hopper', 'grace@ru.is', 'secret1', 'student');
+      await flushPromises();
+    });
+
+    await expect(
+      ctx?.register('Grace Hopper', 'grace@ru.is', 'secret1', 'student'),
+    ).rejects.toThrow();
+
+    await act(async () => {
+      await ctx?.logout();
+      await flushPromises();
+    });
+
+    await expect(
+      ctx?.login('grace@ru.is', 'wrongpass'),
+    ).rejects.toThrow();
+  });
 });

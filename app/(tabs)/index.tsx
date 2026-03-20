@@ -424,7 +424,7 @@ function StudentDashboard({ name }: { name: string }) {
 
         <DashboardCard title="Weekly Insight" accent="#10B981" style={isWide ? styles.halfCard : undefined}>
           <ThemedText style={styles.insightText}>
-            Your mood tends to dip on days with less than 6 hours of sleep. Try winding down 30 minutes earlier tonight.
+            Peoples mood tends to dip on days with less than 6 hours of sleep. Try winding down 30 minutes before going to bed.
           </ThemedText>
           <View style={styles.insightBar}>
             {[0.6, 0.8, 0.5, 0.9, 0.7, 0.85, 0.75].map((h, i) => (
