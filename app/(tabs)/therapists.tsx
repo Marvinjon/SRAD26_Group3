@@ -142,12 +142,14 @@ export default function TherapistsScreen() {
 
   function handleBookPaidTherapist() {
     setError('');
+    setNotice('');
 
     if (!canBookAppointments) {
-      setNotice('');
       setError('Only students and university staff can book appointments.');
       return;
     }
+
+    setNotice('Paid therapist booking requested. They will contact you regarding your appointment.');
   }
 
   return (
