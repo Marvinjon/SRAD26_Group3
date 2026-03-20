@@ -38,6 +38,7 @@ export default function TherapistsScreen() {
   const [bookings, setBookings] = useState<BookingMap>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState('All');
 
   const textColor = useThemeColor({}, 'text');
   const canBookAppointments = user?.role === 'student' || user?.role === 'employee';
@@ -66,6 +67,19 @@ export default function TherapistsScreen() {
   }, []);
 
   const selectedTherapist = THERAPISTS.find((therapist) => therapist.id === user?.selectedTherapistId);
+
+  const specialtyFilters = useMemo(
+    () => ['All', ...Array.from(new Set(THERAPISTS.map((therapist) => therapist.specialty)))],
+    [],
+  );
+
+  const visibleTherapists = useMemo(
+    () =>
+      selectedSpecialty === 'All'
+        ? THERAPISTS
+        : THERAPISTS.filter((therapist) => therapist.specialty === selectedSpecialty),
+    [selectedSpecialty],
+  );
 
   const selectedTherapistAppointments = useMemo(
     () =>
@@ -165,7 +179,32 @@ export default function TherapistsScreen() {
         ) : null}
 
         <ThemedText style={styles.sectionTitle}>Choose therapist</ThemedText>
-        {THERAPISTS.map((therapist) => {
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {specialtyFilters.map((specialty) => {
+            const isActive = specialty === selectedSpecialty;
+
+            return (
+              <TouchableOpacity
+                key={specialty}
+                style={[styles.filterChip, isActive && styles.filterChipActive]}
+                onPress={() => setSelectedSpecialty(specialty)}
+                activeOpacity={0.8}
+              >
+                <ThemedText
+                  style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
+                >
+                  {specialty}
+                </ThemedText>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {visibleTherapists.map((therapist) => {
           const isSelected = therapist.id === selectedTherapist?.id;
 
           return (
@@ -197,6 +236,12 @@ export default function TherapistsScreen() {
             </View>
           );
         })}
+
+        {visibleTherapists.length === 0 ? (
+          <View style={[styles.card, { borderColor: textColor + '20' }]}>
+            <ThemedText style={[styles.emptyText, { color: textColor + '99' }]}>No therapists match this specialty.</ThemedText>
+          </View>
+        ) : null}
 
         <ThemedText style={styles.sectionTitle}>Paid therapists</ThemedText>
         {PAID_THERAPISTS.map((therapist) => (
@@ -352,6 +397,30 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginTop: 6,
+  },
+  filterRow: {
+    gap: 8,
+    paddingBottom: 4,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: '#5B8DEF80',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+  },
+  filterChipActive: {
+    backgroundColor: '#5B8DEF',
+    borderColor: '#5B8DEF',
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5B8DEF',
+  },
+  filterChipTextActive: {
+    color: '#fff',
   },
   card: {
     borderWidth: 1,
