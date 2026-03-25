@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
@@ -7,6 +8,8 @@ import { ThemedView } from '@/components/themed-view';
 import { RESOURCES, type Resource, type ResourceAudience } from '@/constants/resources_list';
 import { useAuth } from '@/contexts/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+
+const SAVED_RESOURCES_KEY_PREFIX = 'mindtrack_saved_resources_';
 
 function formatCompactDate(epochMs: number): string {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(epochMs));
@@ -51,6 +54,8 @@ export default function ResourcesScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedAudience, setSelectedAudience] = useState<'All' | 'Student' | 'University Staff'>('All');
   const [resourceSort, setResourceSort] = useState<'relevance' | 'newest' | 'title'>('relevance');
+  const [savedResourceIds, setSavedResourceIds] = useState<string[]>([]);
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
 
   const categoryFilters = useMemo(() => {
     const set = new Set<string>();
@@ -67,11 +72,61 @@ export default function ResourcesScreen() {
     else setSelectedAudience('All');
   }, [user]);
 
+  useEffect(() => {
+    const email = user?.email;
+    if (!email) return;
+
+    let active = true;
+
+    async function loadSaved() {
+      try {
+        const key = `${SAVED_RESOURCES_KEY_PREFIX}${email}`;
+        const raw = await AsyncStorage.getItem(key);
+        if (!active) return;
+        const parsed = raw ? JSON.parse(raw) : [];
+        setSavedResourceIds(Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : []);
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    loadSaved();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.email]);
+
+  const savedResourceSet = useMemo(() => new Set(savedResourceIds), [savedResourceIds]);
+  const savedResources = useMemo(
+    () => RESOURCES.filter((r) => savedResourceSet.has(r.id)),
+    [savedResourceSet],
+  );
+
+  async function persistSavedResources(nextIds: string[]) {
+    if (!user?.email) return;
+    try {
+      const key = `${SAVED_RESOURCES_KEY_PREFIX}${user.email}`;
+      await AsyncStorage.setItem(key, JSON.stringify(nextIds));
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  async function handleToggleSaved(resourceId: string) {
+    const next = savedResourceSet.has(resourceId)
+      ? savedResourceIds.filter((id) => id !== resourceId)
+      : [...savedResourceIds, resourceId];
+
+    setSavedResourceIds(next);
+    await persistSavedResources(next);
+  }
+
   const filteredResources = useMemo(() => {
     const normalizedQuery = resourceQuery.trim().toLowerCase();
     const terms = normalizedQuery ? normalizedQuery.split(/\s+/).filter(Boolean) : [];
 
-    let list = RESOURCES.slice();
+    let list = showSavedOnly ? savedResources.slice() : RESOURCES.slice();
 
     if (selectedCategory !== 'All') {
       list = list.filter((r) => r.categories.includes(selectedCategory));
@@ -115,7 +170,7 @@ export default function ResourcesScreen() {
     });
 
     return scored.map((x) => x.resource);
-  }, [resourceQuery, resourceSort, selectedAudience, selectedCategory]);
+  }, [resourceQuery, resourceSort, selectedAudience, selectedCategory, showSavedOnly, savedResources]);
 
   if (!user) {
     return (
@@ -159,6 +214,35 @@ export default function ResourcesScreen() {
               <ThemedText style={[styles.pageHelper, { color: textColor + '99' }]}>
                 Search support resources, then filter and sort to find what you need.
               </ThemedText>
+            </View>
+
+            <View style={styles.viewToggleRow}>
+              <TouchableOpacity
+                style={[
+                  styles.viewToggleChip,
+                  !showSavedOnly && styles.viewToggleChipActive,
+                  { borderColor: !showSavedOnly ? '#5B8DEF' : textColor + '26' },
+                ]}
+                onPress={() => setShowSavedOnly(false)}
+                activeOpacity={0.85}
+              >
+                <ThemedText style={[styles.viewToggleChipText, !showSavedOnly && styles.viewToggleChipTextActive]}>
+                  All
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.viewToggleChip,
+                  showSavedOnly && styles.viewToggleChipActive,
+                  { borderColor: showSavedOnly ? '#5B8DEF' : textColor + '26' },
+                ]}
+                onPress={() => setShowSavedOnly(true)}
+                activeOpacity={0.85}
+              >
+                <ThemedText style={[styles.viewToggleChipText, showSavedOnly && styles.viewToggleChipTextActive]}>
+                  Saved ({savedResourceIds.length})
+                </ThemedText>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.searchBlock}>
@@ -270,15 +354,32 @@ export default function ResourcesScreen() {
                   <View key={r.id} style={[styles.resourceItem, { borderColor: textColor + '10' }]}>
                     <View style={styles.resourceItemHeader}>
                       <ThemedText style={[styles.resourceTitle, { color: textColor }]}>{r.title}</ThemedText>
-                      <View
-                        style={[
-                          styles.resourceAudiencePill,
-                          { backgroundColor: textColor + '08', borderColor: textColor + '20' },
-                        ]}
-                      >
-                        <ThemedText style={[styles.resourceAudiencePillText, { color: textColor + 'cc' }]}>
-                          {getAudienceLabel(r.audience)}
-                        </ThemedText>
+                      <View style={styles.resourceHeaderRight}>
+                        <View
+                          style={[
+                            styles.resourceAudiencePill,
+                            { backgroundColor: textColor + '08', borderColor: textColor + '20' },
+                          ]}
+                        >
+                          <ThemedText style={[styles.resourceAudiencePillText, { color: textColor + 'cc' }]}>
+                            {getAudienceLabel(r.audience)}
+                          </ThemedText>
+                        </View>
+                        <TouchableOpacity
+                          style={[
+                            styles.saveButton,
+                            savedResourceSet.has(r.id) && styles.saveButtonActive,
+                            { borderColor: savedResourceSet.has(r.id) ? '#F59200' : textColor + '20' },
+                          ]}
+                          onPress={() => handleToggleSaved(r.id)}
+                          activeOpacity={0.85}
+                          accessibilityRole="button"
+                          accessibilityLabel={savedResourceSet.has(r.id) ? 'Remove from saved' : 'Save for later'}
+                        >
+                          <ThemedText style={[styles.saveButtonText, savedResourceSet.has(r.id) && { color: '#F59200' }]}>
+                            {savedResourceSet.has(r.id) ? '★' : '☆'}
+                          </ThemedText>
+                        </TouchableOpacity>
                       </View>
                     </View>
 
@@ -339,6 +440,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     opacity: 0.75,
     lineHeight: 19,
+  },
+  viewToggleRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 4,
+  },
+  viewToggleChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+  },
+  viewToggleChipActive: {
+    backgroundColor: '#5B8DEF',
+    borderColor: '#5B8DEF',
+  },
+  viewToggleChipText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#5B8DEF',
+  },
+  viewToggleChipTextActive: {
+    color: '#fff',
   },
   card: {
     margin: 16,
@@ -433,6 +560,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
+  resourceHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   resourceTitle: {
     fontSize: 15,
     fontWeight: '800',
@@ -447,6 +579,23 @@ const styles = StyleSheet.create({
   resourceAudiencePillText: {
     fontSize: 11,
     fontWeight: '800',
+  },
+  saveButton: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  saveButtonActive: {
+    backgroundColor: '#F5920018',
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#5B8DEF',
   },
   resourceDesc: {
     fontSize: 13,
