@@ -5,45 +5,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { RESOURCES, type Resource, type ResourceAudience } from '@/constants/resources_list';
+import { RESOURCES } from '@/constants/resources_list';
 import { useAuth } from '@/contexts/auth-context';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import {
+  filterResources,
+  getAudienceLabel,
+  getCategoryFilters,
+  toggleSavedResourceIds,
+  type ResourceAudienceFilter,
+  type ResourceSortOption,
+} from '@/utils/resources';
 
 const SAVED_RESOURCES_KEY_PREFIX = 'mindtrack_saved_resources_';
 
 function formatCompactDate(epochMs: number): string {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(epochMs));
-}
-
-function getAudienceLabel(audience: ResourceAudience): string {
-  if (audience === 'student') return 'Student';
-  if (audience === 'employee') return 'University Staff';
-  return 'Students & Staff';
-}
-
-function computeSearchScore(resource: Resource, terms: string[]): number {
-  if (terms.length === 0) return 0;
-
-  const title = resource.title.toLowerCase();
-  const description = resource.description.toLowerCase();
-  const categories = resource.categories.join(' ').toLowerCase();
-  const tags = resource.tags.join(' ').toLowerCase();
-
-  let score = 0;
-  for (const term of terms) {
-    if (!term) continue;
-
-    if (title.includes(term)) score += 7;
-    if (tags.includes(term)) score += 4;
-    if (categories.includes(term)) score += 3;
-    if (description.includes(term)) score += 2;
-  }
-
-  // Extra boost when the whole query matches a chunk.
-  const phrase = terms.join(' ');
-  if (phrase.length >= 3 && (title.includes(phrase) || description.includes(phrase))) score += 10;
-
-  return score;
 }
 
 export default function ResourcesScreen() {
@@ -52,18 +29,12 @@ export default function ResourcesScreen() {
 
   const [resourceQuery, setResourceQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [selectedAudience, setSelectedAudience] = useState<'All' | 'Student' | 'University Staff'>('All');
-  const [resourceSort, setResourceSort] = useState<'relevance' | 'newest' | 'title'>('relevance');
+  const [selectedAudience, setSelectedAudience] = useState<ResourceAudienceFilter>('All');
+  const [resourceSort, setResourceSort] = useState<ResourceSortOption>('relevance');
   const [savedResourceIds, setSavedResourceIds] = useState<string[]>([]);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
 
-  const categoryFilters = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of RESOURCES) {
-      for (const c of r.categories) set.add(c);
-    }
-    return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
-  }, []);
+  const categoryFilters = useMemo(() => getCategoryFilters(RESOURCES), []);
 
   useEffect(() => {
     if (!user) return;
@@ -98,10 +69,6 @@ export default function ResourcesScreen() {
   }, [user?.email]);
 
   const savedResourceSet = useMemo(() => new Set(savedResourceIds), [savedResourceIds]);
-  const savedResources = useMemo(
-    () => RESOURCES.filter((r) => savedResourceSet.has(r.id)),
-    [savedResourceSet],
-  );
 
   async function persistSavedResources(nextIds: string[]) {
     if (!user?.email) return;
@@ -114,63 +81,23 @@ export default function ResourcesScreen() {
   }
 
   async function handleToggleSaved(resourceId: string) {
-    const next = savedResourceSet.has(resourceId)
-      ? savedResourceIds.filter((id) => id !== resourceId)
-      : [...savedResourceIds, resourceId];
-
+    const next = toggleSavedResourceIds(savedResourceIds, resourceId);
     setSavedResourceIds(next);
     await persistSavedResources(next);
   }
 
-  const filteredResources = useMemo(() => {
-    const normalizedQuery = resourceQuery.trim().toLowerCase();
-    const terms = normalizedQuery ? normalizedQuery.split(/\s+/).filter(Boolean) : [];
-
-    let list = showSavedOnly ? savedResources.slice() : RESOURCES.slice();
-
-    if (selectedCategory !== 'All') {
-      list = list.filter((r) => r.categories.includes(selectedCategory));
-    }
-
-    if (selectedAudience !== 'All') {
-      list = list.filter((r) => {
-        if (selectedAudience === 'Student') return r.audience === 'student' || r.audience === 'both';
-        if (selectedAudience === 'University Staff')
-          return r.audience === 'employee' || r.audience === 'both';
-        return true;
-      });
-    }
-
-    if (terms.length === 0) {
-      const sorted = list.slice();
-      if (resourceSort === 'title') sorted.sort((a, b) => a.title.localeCompare(b.title));
-      else sorted.sort((a, b) => b.updatedAt - a.updatedAt); // relevance -> newest fallback
-      return sorted;
-    }
-
-    const scored = list
-      .map((resource) => ({ resource, score: computeSearchScore(resource, terms) }))
-      .filter((x) => x.score > 0);
-
-    scored.sort((a, b) => {
-      if (resourceSort === 'relevance') {
-        const diff = b.score - a.score;
-        if (diff !== 0) return diff;
-        return b.resource.updatedAt - a.resource.updatedAt;
-      }
-      if (resourceSort === 'newest') {
-        const diff = b.resource.updatedAt - a.resource.updatedAt;
-        if (diff !== 0) return diff;
-        return a.resource.title.localeCompare(b.resource.title);
-      }
-      // title
-      const diff = a.resource.title.localeCompare(b.resource.title);
-      if (diff !== 0) return diff;
-      return b.resource.updatedAt - a.resource.updatedAt;
-    });
-
-    return scored.map((x) => x.resource);
-  }, [resourceQuery, resourceSort, selectedAudience, selectedCategory, showSavedOnly, savedResources]);
+  const filteredResources = useMemo(
+    () =>
+      filterResources(RESOURCES, {
+        query: resourceQuery,
+        resourceSort,
+        savedResourceIds,
+        selectedAudience,
+        selectedCategory,
+        showSavedOnly,
+      }),
+    [resourceQuery, resourceSort, savedResourceIds, selectedAudience, selectedCategory, showSavedOnly],
+  );
 
   if (!user) {
     return (
@@ -202,7 +129,7 @@ export default function ResourcesScreen() {
     );
   }
 
-  const audienceFilters: Array<'All' | 'Student' | 'University Staff'> = ['All', 'Student', 'University Staff'];
+  const audienceFilters: ResourceAudienceFilter[] = ['All', 'Student', 'University Staff'];
 
   return (
     <ThemedView style={styles.container}>
@@ -223,6 +150,7 @@ export default function ResourcesScreen() {
                   !showSavedOnly && styles.viewToggleChipActive,
                   { borderColor: !showSavedOnly ? '#5B8DEF' : textColor + '26' },
                 ]}
+                testID="resources-toggle-all"
                 onPress={() => setShowSavedOnly(false)}
                 activeOpacity={0.85}
               >
@@ -236,6 +164,7 @@ export default function ResourcesScreen() {
                   showSavedOnly && styles.viewToggleChipActive,
                   { borderColor: showSavedOnly ? '#5B8DEF' : textColor + '26' },
                 ]}
+                testID="resources-toggle-saved"
                 onPress={() => setShowSavedOnly(true)}
                 activeOpacity={0.85}
               >
@@ -252,6 +181,7 @@ export default function ResourcesScreen() {
                 onChangeText={setResourceQuery}
                 placeholder="e.g. anxiety, sleep, study planning"
                 placeholderTextColor={textColor + '40'}
+                testID="resources-search-input"
                 style={[
                   styles.searchInput,
                   { color: textColor, backgroundColor: textColor + '06', borderColor: textColor + '20' },
@@ -272,6 +202,7 @@ export default function ResourcesScreen() {
                         active && styles.filterChipActive,
                         { borderColor: active ? '#5B8DEF' : textColor + '26' },
                       ]}
+                      testID={`resources-audience-${aud.toLowerCase().replace(/\s+/g, '-')}`}
                       onPress={() => setSelectedAudience(aud)}
                       activeOpacity={0.85}
                     >
@@ -297,6 +228,7 @@ export default function ResourcesScreen() {
                         active && styles.filterChipActive,
                         { borderColor: active ? '#5B8DEF' : textColor + '26' },
                       ]}
+                      testID={`resources-category-${cat.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}`}
                       onPress={() => setSelectedCategory(cat)}
                       activeOpacity={0.85}
                     >
@@ -326,6 +258,7 @@ export default function ResourcesScreen() {
                         active && styles.filterChipActive,
                         { borderColor: active ? '#5B8DEF' : textColor + '26' },
                       ]}
+                      testID={`resources-sort-${opt.value}`}
                       onPress={() => setResourceSort(opt.value as typeof resourceSort)}
                       activeOpacity={0.85}
                     >
@@ -371,6 +304,7 @@ export default function ResourcesScreen() {
                             savedResourceSet.has(r.id) && styles.saveButtonActive,
                             { borderColor: savedResourceSet.has(r.id) ? '#F59200' : textColor + '20' },
                           ]}
+                          testID={`resources-save-${r.id}`}
                           onPress={() => handleToggleSaved(r.id)}
                           activeOpacity={0.85}
                           accessibilityRole="button"
@@ -642,4 +576,3 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
-
