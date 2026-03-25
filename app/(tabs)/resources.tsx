@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DashboardCard } from '@/components/dashboard-card';
 import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -154,7 +153,14 @@ export default function ResourcesScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <DashboardCard title="Resources for Students & University Staff" accent="#5B8DEF">
+          <View style={styles.page}>
+            <View style={styles.pageHeader}>
+              <ThemedText style={styles.pageTitle}>Resources for Students & University Staff</ThemedText>
+              <ThemedText style={[styles.pageHelper, { color: textColor + '99' }]}>
+                Search support resources, then filter and sort to find what you need.
+              </ThemedText>
+            </View>
+
             <View style={styles.searchBlock}>
               <ThemedText style={styles.searchLabel}>Search support resources</ThemedText>
               <TextInput
@@ -295,7 +301,7 @@ export default function ResourcesScreen() {
                     </View>
 
                     {r.url ? (
-                      <ExternalLink href={r.url}>
+                      <ExternalLink href={r.url as any}>
                         <ThemedText style={styles.resourceLinkText}>Open link</ThemedText>
                       </ExternalLink>
                     ) : null}
@@ -303,7 +309,7 @@ export default function ResourcesScreen() {
                 ))}
               </View>
             )}
-          </DashboardCard>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -316,6 +322,23 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
+  },
+  page: {
+    gap: 10,
+  },
+  pageHeader: {
+    gap: 6,
+    marginBottom: 6,
+  },
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  pageHelper: {
+    fontSize: 13,
+    fontWeight: '600',
+    opacity: 0.75,
+    lineHeight: 19,
   },
   card: {
     margin: 16,
