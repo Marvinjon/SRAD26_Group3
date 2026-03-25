@@ -412,7 +412,7 @@ function StudentDashboard({ name }: { name: string }) {
                     onPress={() => user && toggleRegistration(workshop.id, user.email)}
                     disabled={!user || (!canJoin && !isRegistered)}
                   >
-                    <ThemedText style={[styles.joinBtnText, (isRegistered || (!canJoin && !isRegistered)) && { color: '#fff' }]}>
+                    <ThemedText style={[styles.joinBtnText, { color: '#fff' }]}>
                       {isRegistered ? 'Joined' : isFull ? 'Full' : 'Join'}
                     </ThemedText>
                   </TouchableOpacity>
@@ -446,23 +446,6 @@ function StudentDashboard({ name }: { name: string }) {
           </View>
         </DashboardCard>
       </View>
-
-      <DashboardCard title="Resources For You">
-        <View style={styles.resourceRow}>
-          <View style={[styles.resourceChip, { backgroundColor: '#5B8DEF18' }]}>
-            <ThemedText style={[styles.resourceChipText, { color: '#5B8DEF' }]}>Exam Stress</ThemedText>
-          </View>
-          <View style={[styles.resourceChip, { backgroundColor: '#8B5CF618' }]}>
-            <ThemedText style={[styles.resourceChipText, { color: '#8B5CF6' }]}>Sleep Tips</ThemedText>
-          </View>
-          <View style={[styles.resourceChip, { backgroundColor: '#10B98118' }]}>
-            <ThemedText style={[styles.resourceChipText, { color: '#10B981' }]}>Mindfulness</ThemedText>
-          </View>
-          <View style={[styles.resourceChip, { backgroundColor: '#F5920018' }]}>
-            <ThemedText style={[styles.resourceChipText, { color: '#F59200' }]}>Homesickness</ThemedText>
-          </View>
-        </View>
-      </DashboardCard>
 
       <WorkshopDetailModal
         visible={!!selectedWorkshop}
@@ -813,22 +796,6 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
 
-  // Resources
-  resourceRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  resourceChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  resourceChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
   // Therapist schedule
   scheduleItem: {
     flexDirection: 'row',
@@ -917,6 +884,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#9ca9c8',
   },
 
+  // Workshop list join button label
+  joinBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+  },
+
+  // Workshop detail modal action button (disabled state)
+  actionBtnDisabled: {
+    backgroundColor: '#9ca9c8',
+  },
+
   // Create workshop modal
   modalOverlay: {
     flex: 1,
@@ -935,6 +914,40 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.85,
+    marginTop: 4,
+  },
+  modalMeta: {
+    fontSize: 13,
+    opacity: 0.55,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  modalInfoRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  modalInfoBox: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    gap: 4,
+  },
+  modalInfoLabel: {
+    fontSize: 11,
+    opacity: 0.6,
+    fontWeight: '700',
+  },
+  modalInfoValue: {
+    fontSize: 16,
+    fontWeight: '800',
   },
   input: {
     borderWidth: 1,
