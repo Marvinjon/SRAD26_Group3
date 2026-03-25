@@ -106,4 +106,32 @@ describe('WorkshopsProvider', () => {
     const afterSecond = ctx?.workshops.find((w) => w.id === workshopId);
     expect(afterSecond?.registered).toEqual(['student1@ru.is']);
   });
+
+  it('regression: toggling registration twice lets a user leave again', async () => {
+    await act(async () => {
+      renderer.create(
+        <WorkshopsProvider>
+          <WorkshopsConsumer />
+        </WorkshopsProvider>,
+      );
+      await flushPromises();
+    });
+
+    const workshopId = ctx?.workshops.find((workshop) => workshop.id === 'wks-2')?.id as string;
+    const attendee = 'repeat-user@ru.is';
+
+    await act(async () => {
+      await ctx?.toggleRegistration(workshopId, attendee);
+      await flushPromises();
+    });
+
+    expect(ctx?.workshops.find((workshop) => workshop.id === workshopId)?.registered).toContain(attendee);
+
+    await act(async () => {
+      await ctx?.toggleRegistration(workshopId, attendee);
+      await flushPromises();
+    });
+
+    expect(ctx?.workshops.find((workshop) => workshop.id === workshopId)?.registered).not.toContain(attendee);
+  });
 });
